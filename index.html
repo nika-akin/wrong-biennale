@@ -96,10 +96,9 @@ loader.load(
     './models/rigid_astronaut.glb',
     gltf => {
         const model = gltf.scene;
-        model.position.set(0,1,0);
+        model.position.set(0,0,0);
         model.rotation.y = Math.PI; // rotate if needed
-        model.scale.set(2.5,2.5,2.5);
-model.position.y = 1; // adjust to fit camera view
+        model.scale.set(1.5,1.5,1.5); // adjust to fit camera view
         scene.add(model);
     },
     xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
