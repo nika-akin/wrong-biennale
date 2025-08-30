@@ -91,16 +91,15 @@ camera.position.set(0,2,5);
 // Load GLB
 const loader = new GLTFLoader();
 loader.load(
-    'https://drive.google.com/uc?export=download&id=1o498y-UYiB7O3rOJaD2fOOILG-mSBXcT',
+    './models/rigid_astronaut.glb',
     gltf => {
         scene.add(gltf.scene);
-        gltf.scene.position.set(0,0,-10);
-        gltf.scene.scale.set(1,1,1);
+        gltf.scene.position.set(0, 0, -10);
+        gltf.scene.scale.set(1, 1, 1);
     },
-    xhr => console.log((xhr.loaded / xhr.total * 100)+'% loaded'),
+    xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
     error => console.error(error)
 );
-
 // Animation loop
 const clock = new THREE.Clock();
 function animate(){
