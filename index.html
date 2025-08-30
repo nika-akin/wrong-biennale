@@ -1,49 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Berlinale Alien Walk</title>
-  <style>
-    body { margin:0; overflow:hidden; }
-    canvas { display:block; }
-    #instructions {
-      position: absolute;
-      top: 40%;
-      width: 100%;
-      text-align: center;
-      color: white;
-      font-family: sans-serif;
-      font-size: 24px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Berlinale Alien Walk</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+  #instructions {
+    position: absolute;
+    top: 40%;
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-family: sans-serif;
+    font-size: 24px;
+  }
+</style>
 </head>
 <body>
 <div id="instructions">Click to start FPS controls</div>
 
 <script type="module">
-import * as THREE from 'https://esm.sh/three@0.160.0';
-import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
+import * as THREE from './js/three.module.js';
+import { GLTFLoader } from './js/GLTFLoader.js';
+import { DRACOLoader } from './js/DRACOLoader.js';
 
-// Scene, camera, renderer
+// --- Scene, Camera, Renderer ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0,2,5);
+
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Lights
+// --- Lights ---
 scene.add(new THREE.AmbientLight(0xffffff, 2));
 const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-dirLight.position.set(10, 20, 10);
+dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
-// Floor
+// --- Floor ---
 const floorGeo = new THREE.PlaneGeometry(200,200);
 const floorMat = new THREE.MeshStandardMaterial({color:0x222222});
-const floor = new THREE.Mesh(floorGeo, floorMat);
+const floor = new THREE.Mesh(floorGeo,floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
@@ -51,91 +53,92 @@ scene.add(floor);
 let move = {forward:false, backward:false, left:false, right:false};
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
-let pitch = 0;
-let yaw = 0;
+let pitch = 0, yaw = 0;
 let pointerLocked = false;
 
-document.getElementById('instructions').addEventListener('click', ()=>{
+document.getElementById('instructions').addEventListener('click', () => {
     document.body.requestPointerLock();
 });
 
-document.addEventListener('pointerlockchange', ()=>{
+document.addEventListener('pointerlockchange', () => {
     pointerLocked = document.pointerLockElement === document.body;
     document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
 });
 
-document.addEventListener('mousemove', (e)=>{
-    if(!pointerLocked) return;
+document.addEventListener('mousemove', (e) => {
+    if (!pointerLocked) return;
     yaw -= e.movementX * 0.002;
     pitch -= e.movementY * 0.002;
     pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
     camera.rotation.set(pitch, yaw, 0);
 });
 
-document.addEventListener('keydown', e=>{
-    if(e.code==='KeyW') move.forward=true;
-    if(e.code==='KeyS') move.backward=true;
-    if(e.code==='KeyA') move.left=true;
-    if(e.code==='KeyD') move.right=true;
+document.addEventListener('keydown', e => {
+    if (e.code==='KeyW') move.forward=true;
+    if (e.code==='KeyS') move.backward=true;
+    if (e.code==='KeyA') move.left=true;
+    if (e.code==='KeyD') move.right=true;
 });
-document.addEventListener('keyup', e=>{
-    if(e.code==='KeyW') move.forward=false;
-    if(e.code==='KeyS') move.backward=false;
-    if(e.code==='KeyA') move.left=false;
-    if(e.code==='KeyD') move.right=false;
+document.addEventListener('keyup', e => {
+    if (e.code==='KeyW') move.forward=false;
+    if (e.code==='KeyS') move.backward=false;
+    if (e.code==='KeyA') move.left=false;
+    if (e.code==='KeyD') move.right=false;
 });
-
-camera.position.set(0,2,5);
 
 // --- GLTFLoader with DRACOLoader ---
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/'); // Google CDN for Draco decoders
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 
 loader.load(
     './models/rigid_astronaut.glb',
     gltf => {
-        scene.add(gltf.scene);
-        gltf.scene.position.set(0,0,-10);
-        gltf.scene.scale.set(1,1,1);
+        const model = gltf.scene;
+        model.position.set(0,0,0);
+        model.rotation.y = Math.PI; // rotate if needed
+        model.scale.set(0.5,0.5,0.5); // adjust to fit camera view
+        scene.add(model);
     },
     xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
     error => console.error(error)
 );
 
-// Animation loop
+// --- Animation Loop ---
 const clock = new THREE.Clock();
-function animate(){
+function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
 
-    // Movement
-    velocity.x -= velocity.x*10.0*delta;
-    velocity.z -= velocity.z*10.0*delta;
-    direction.z = Number(move.forward)-Number(move.backward);
-    direction.x = Number(move.right)-Number(move.left);
-    direction.normalize();
-    if(move.forward||move.backward) velocity.z -= direction.z*50.0*delta;
-    if(move.left||move.right) velocity.x -= direction.x*50.0*delta;
+    // Smooth movement damping
+    velocity.x -= velocity.x * 10.0 * delta;
+    velocity.z -= velocity.z * 10.0 * delta;
 
-    // Apply movement relative to camera rotation
-    const forward = new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
-    const right = new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-    camera.position.addScaledVector(forward,-velocity.z*delta);
-    camera.position.addScaledVector(right,-velocity.x*delta);
+    // Direction
+    direction.z = Number(move.forward) - Number(move.backward);
+    direction.x = Number(move.right) - Number(move.left);
+    direction.normalize();
+
+    if (move.forward || move.backward) velocity.z -= direction.z * 50.0 * delta;
+    if (move.left || move.right) velocity.x -= direction.x * 50.0 * delta;
+
+    // Apply movement relative to camera yaw
+    const forward = new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
+    const right = new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
+    camera.position.addScaledVector(forward, velocity.z * delta);
+    camera.position.addScaledVector(right, velocity.x * delta);
 
     renderer.render(scene,camera);
 }
 animate();
 
-// Handle window resize
+// --- Handle Window Resize ---
 window.addEventListener('resize', ()=>{
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
-
 </body>
 </html>
