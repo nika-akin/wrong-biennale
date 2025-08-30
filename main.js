@@ -46,22 +46,30 @@ camera.position.set(0,2,5); // starting position
 const loader = new THREE.GLTFLoader();
 
 // Load first room
-loader.load('models/room1.glb', (gltf) => {
-  gltf.scene.position.set(0,0,0); // center
-  scene.add(gltf.scene);
+loader.load(
+https://drive.google.com/uc?export=download&id=1o498y-UYiB7O3rOJaD2fOOILG-mSBXcT,
+ (gltf) => {
+    scene.add(gltf.scene);
+    gltf.scene.position.set(0,0,0);
+  },
+  (xhr) => {
+    console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+  },
+  (error) => {
+    console.error('An error happened', error);
 });
 
 // Load second room further away
-loader.load('models/room2.glb', (gltf) => {
-  gltf.scene.position.set(0,0,-50); // 50 units behind the first
-  scene.add(gltf.scene);
-});
+//loader.load('models/room2.glb', (gltf) => {
+ // gltf.scene.position.set(0,0,-50); // 50 units behind the first
+ // scene.add(gltf.scene);
+//});
 
 // Load alien figure
-loader.load('models/alien.glb', (gltf) => {
-  gltf.scene.position.set(2,0,-10); // place inside first room
-  scene.add(gltf.scene);
-});
+//loader.load('models/alien.glb', (gltf) => {
+ // gltf.scene.position.set(2,0,-10); // place inside first room
+//  scene.add(gltf.scene);
+//});
 
 // ANIMATE LOOP
 const clock = new THREE.Clock();
