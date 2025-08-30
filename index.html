@@ -96,10 +96,27 @@ loader.load(
     './models/rigid_astronaut.glb',
     gltf => {
         const model = gltf.scene;
-        model.position.set(0,1,0);
-        model.rotation.y = Math.PI; // rotate if needed
-        model.scale.set(1.5,1.5,1.5); // adjust to fit camera view
+
+        // Scale model
+        model.scale.set(1.2,1.2,1.2);
+
+        // Center model
+        const bbox = new THREE.Box3().setFromObject(model);
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+        model.position.sub(center);
+
+        // Raise model above floor
+        model.position.y += 1.5;
+
+        // Rotate 180° around Y-axis
+        model.rotation.y = Math.PI;
+
+        // Add model to scene
         scene.add(model);
+
+        // Make camera initially look at model
+        camera.lookAt(model.position);
     },
     xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
     error => console.error(error)
