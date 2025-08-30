@@ -98,8 +98,8 @@ loader.load(
         const model = gltf.scene;
         model.position.set(0,1,0);
         model.rotation.y = Math.PI; // rotate if needed
-        model.scale.set(1.8,1.8,1.8); // adjust to fit camera view
-    model.position.y = 2;
+        model.scale.set(2,2,2); // adjust to fit camera view
+    model.position.y = 4;
         scene.add(model);
     },
     xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
