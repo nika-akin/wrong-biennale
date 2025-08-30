@@ -21,8 +21,10 @@
 <div id="instructions">Click to start FPS controls</div>
 
 <script type="module">
-import * as THREE from './js/three.module.js';
-import { GLTFLoader } from './js/GLTFLoader.js';
+import * as THREE from 'https://esm.sh/three@0.160.0';
+import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+console.log(THREE, GLTFLoader);
 
 // Scene, camera, renderer
 const scene = new THREE.Scene();
