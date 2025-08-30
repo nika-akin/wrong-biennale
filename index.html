@@ -6,108 +6,131 @@
   <style>
     body { margin:0; overflow:hidden; }
     canvas { display:block; }
+    #instructions {
+      position: absolute;
+      top: 40%;
+      width: 100%;
+      text-align: center;
+      color: white;
+      font-family: sans-serif;
+      font-size: 24px;
+    }
   </style>
 </head>
 <body>
+<div id="instructions">Click to start FPS controls</div>
 
-<!-- Three.js r149 (non-module, browser-friendly) -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/controls/PointerLockControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/loaders/GLTFLoader.js"></script>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
-<script>
-  // Scene, camera, renderer
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x000000);
+// Scene, camera, renderer
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
 
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-  // Lights
-  scene.add(new THREE.AmbientLight(0xffffff, 2));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-  dirLight.position.set(10, 20, 10);
-  scene.add(dirLight);
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, 2));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(10, 20, 10);
+scene.add(dirLight);
 
-  // PointerLockControls
-  const controls = new THREE.PointerLockControls(camera, document.body);
-  document.body.addEventListener('click', () => controls.lock());
+// Floor
+const floorGeo = new THREE.PlaneGeometry(200,200);
+const floorMat = new THREE.MeshStandardMaterial({color:0x222222});
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
 
-  // Movement
-  const velocity = new THREE.Vector3();
-  const direction = new THREE.Vector3();
-  const move = { forward:false, backward:false, left:false, right:false };
+// --- Custom Pointer Lock / FPS Controls ---
+let move = {forward:false, backward:false, left:false, right:false};
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+let pitch = 0;
+let yaw = 0;
+let pointerLocked = false;
 
-  document.addEventListener('keydown', e => {
-    if(e.code === 'KeyW') move.forward = true;
-    if(e.code === 'KeyS') move.backward = true;
-    if(e.code === 'KeyA') move.left = true;
-    if(e.code === 'KeyD') move.right = true;
-  });
+document.getElementById('instructions').addEventListener('click', ()=>{
+    document.body.requestPointerLock();
+});
 
-  document.addEventListener('keyup', e => {
-    if(e.code === 'KeyW') move.forward = false;
-    if(e.code === 'KeyS') move.backward = false;
-    if(e.code === 'KeyA') move.left = false;
-    if(e.code === 'KeyD') move.right = false;
-  });
+document.addEventListener('pointerlockchange', ()=>{
+    pointerLocked = document.pointerLockElement === document.body;
+    document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
+});
 
-  // Camera start
-  camera.position.set(0, 2, 5);
+document.addEventListener('mousemove', (e)=>{
+    if(!pointerLocked) return;
+    yaw -= e.movementX * 0.002;
+    pitch -= e.movementY * 0.002;
+    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+    camera.rotation.set(pitch, yaw, 0);
+});
 
-  // Floor
-  const floorGeo = new THREE.PlaneGeometry(200, 200);
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-  const floor = new THREE.Mesh(floorGeo, floorMat);
-  floor.rotation.x = -Math.PI/2;
-  scene.add(floor);
+document.addEventListener('keydown', e=>{
+    if(e.code==='KeyW') move.forward=true;
+    if(e.code==='KeyS') move.backward=true;
+    if(e.code==='KeyA') move.left=true;
+    if(e.code==='KeyD') move.right=true;
+});
+document.addEventListener('keyup', e=>{
+    if(e.code==='KeyW') move.forward=false;
+    if(e.code==='KeyS') move.backward=false;
+    if(e.code==='KeyA') move.left=false;
+    if(e.code==='KeyD') move.right=false;
+});
 
-  // Load astronaut GLB from Google Drive
-  const loader = new THREE.GLTFLoader();
-  loader.load(
+camera.position.set(0,2,5);
+
+// Load GLB
+const loader = new GLTFLoader();
+loader.load(
     'https://drive.google.com/uc?export=download&id=1o498y-UYiB7O3rOJaD2fOOILG-mSBXcT',
-    function(gltf) {
-      scene.add(gltf.scene);
-      gltf.scene.position.set(0,0,-10);
-      gltf.scene.scale.set(1,1,1);
+    gltf => {
+        scene.add(gltf.scene);
+        gltf.scene.position.set(0,0,-10);
+        gltf.scene.scale.set(1,1,1);
     },
-    function(xhr){ console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
-    function(error){ console.error(error); }
-  );
+    xhr => console.log((xhr.loaded / xhr.total * 100)+'% loaded'),
+    error => console.error(error)
+);
 
-  // Animation loop
-  const clock = new THREE.Clock();
-  function animate() {
+// Animation loop
+const clock = new THREE.Clock();
+function animate(){
     requestAnimationFrame(animate);
-
     const delta = clock.getDelta();
-    velocity.x -= velocity.x * 10.0 * delta;
-    velocity.z -= velocity.z * 10.0 * delta;
 
-    direction.z = Number(move.forward) - Number(move.backward);
-    direction.x = Number(move.right) - Number(move.left);
+    // Movement
+    velocity.x -= velocity.x*10.0*delta;
+    velocity.z -= velocity.z*10.0*delta;
+    direction.z = Number(move.forward)-Number(move.backward);
+    direction.x = Number(move.right)-Number(move.left);
     direction.normalize();
+    if(move.forward||move.backward) velocity.z -= direction.z*50.0*delta;
+    if(move.left||move.right) velocity.x -= direction.x*50.0*delta;
 
-    if(move.forward || move.backward) velocity.z -= direction.z * 50.0 * delta;
-    if(move.left || move.right) velocity.x -= direction.x * 50.0 * delta;
+    // Apply movement relative to camera rotation
+    const forward = new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
+    const right = new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+    camera.position.addScaledVector(forward,-velocity.z*delta);
+    camera.position.addScaledVector(right,-velocity.x*delta);
 
-    controls.moveRight(-velocity.x * delta);
-    controls.moveForward(-velocity.z * delta);
+    renderer.render(scene,camera);
+}
+animate();
 
-    renderer.render(scene, camera);
-  }
-  animate();
-
-  // Handle window resize
-  window.addEventListener('resize', function(){
+// Resize
+window.addEventListener('resize', ()=>{
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+    renderer.setSize(window.innerWidth,window.innerHeight);
+});
 </script>
 
 </body>
 </html>
-
