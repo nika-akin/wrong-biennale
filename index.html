@@ -21,10 +21,9 @@
 <div id="instructions">Click to start FPS controls</div>
 
 <script type="module">
-import * as THREE from 'https://esm.sh/three@0.160.0';
-import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-
-console.log(THREE, GLTFLoader);
+import * as THREE from './js/three.module.js';
+import { GLTFLoader } from './js/GLTFLoader.js';
+import { DRACOLoader } from './js/DRACOLoader.js';
 
 // Scene, camera, renderer
 const scene = new THREE.Scene();
@@ -48,7 +47,7 @@ const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// --- Custom Pointer Lock / FPS Controls ---
+// --- FPS Pointer Lock Controls ---
 let move = {forward:false, backward:false, left:false, right:false};
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
@@ -88,18 +87,23 @@ document.addEventListener('keyup', e=>{
 
 camera.position.set(0,2,5);
 
-// Load GLB
+// --- GLTFLoader with DRACOLoader ---
 const loader = new GLTFLoader();
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/'); // Google CDN for Draco decoders
+loader.setDRACOLoader(dracoLoader);
+
 loader.load(
     './models/rigid_astronaut.glb',
     gltf => {
         scene.add(gltf.scene);
-        gltf.scene.position.set(0, 0, -10);
-        gltf.scene.scale.set(1, 1, 1);
+        gltf.scene.position.set(0,0,-10);
+        gltf.scene.scale.set(1,1,1);
     },
     xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
     error => console.error(error)
 );
+
 // Animation loop
 const clock = new THREE.Clock();
 function animate(){
@@ -125,11 +129,11 @@ function animate(){
 }
 animate();
 
-// Resize
+// Handle window resize
 window.addEventListener('resize', ()=>{
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth,window.innerHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 
