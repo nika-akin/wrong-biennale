@@ -112,16 +112,6 @@ function updateGlitchTerrain(delta) {
   glitchMat.uniforms.time.value += delta;
 }
 
-function animate() {
-    requestAnimationFrame(animate);
-    const delta = clock.getDelta();
-
-    // your movement code here...
-
-    updateGlitchTerrain(delta); // <- correct shader update
-
-    renderer.render(scene, camera);
-}
 
 
 // --- FPS Pointer Lock Controls ---
@@ -212,7 +202,8 @@ function animate() {
     const right = new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
     camera.position.addScaledVector(forward, velocity.z * delta);
     camera.position.addScaledVector(right, velocity.x * delta);
-
+// ----- update glitch terrain -----
+    updateGlitchTerrain(delta);
     renderer.render(scene,camera);
 }
 animate();
