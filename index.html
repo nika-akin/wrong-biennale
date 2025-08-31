@@ -117,6 +117,68 @@ function updateGlitchTerrain(delta) {
 }
 
 
+// --- Background protoplasm plane ---
+const bgGeo = new THREE.PlaneGeometry(2, 2); // covers the screen
+const bgMat = new THREE.ShaderMaterial({
+  uniforms: {
+    time: { value: 0 },
+    resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+  },
+  vertexShader: `
+    void main() {
+      gl_Position = vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform float time;
+    uniform vec2 resolution;
+    
+    // Minimal fbm + noise functions (simplified)
+    mat3 m = mat3( 0.00, 0.80, 0.60,
+                   -0.80, 0.36, -0.48,
+                   -0.60, -0.48, 0.64 );
+
+    float hash(float n) {
+      return fract(sin(n)*43758.5453);
+    }
+
+    float noise(in vec3 x) {
+      vec3 p = floor(x);
+      vec3 f = fract(x);
+      f = f*f*(3.-2.*f);
+      float n = p.x + p.y*57. + 113.*p.z;
+      float res = mix(mix(mix(hash(n+0.), hash(n+1.), f.x),
+                          mix(hash(n+57.), hash(n+58.), f.x), f.y),
+                      mix(mix(hash(n+113.), hash(n+114.), f.x),
+                          mix(hash(n+170.), hash(n+171.), f.x), f.y), f.z);
+      return res;
+    }
+
+    float fbm(vec3 p) {
+      float f;
+      f  = 0.5*noise(p); p = m*p*2.02;
+      f += 0.25*noise(p); p = m*p*2.03;
+      f += 0.125*noise(p); p = m*p*2.01;
+      f += 0.0625*noise(p);
+      return f;
+    }
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / resolution.xy;
+      vec3 p = vec3(uv*4.0, time*0.1);
+      float f = fbm(p);
+      vec3 col = vec3(f*0.1, f*0.2, f*0.1); // greenish alien hues
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+  depthWrite: false,
+  depthTest: false,
+  side: THREE.DoubleSide
+});
+
+const bgPlane = new THREE.Mesh(bgGeo, bgMat);
+bgPlane.renderOrder = -1; // make sure it's rendered behind everything
+scene.add(bgPlane);
 
 
 // --- FPS Pointer Lock Controls ---
@@ -209,6 +271,12 @@ function animate() {
     camera.position.addScaledVector(right, velocity.x * delta);
 // ----- update glitch terrain -----
     updateGlitchTerrain(delta);
+ // Update terrain mesh time uniform
+  glitchMat.uniforms.time.value += delta;
+
+  // Update background plane time
+  bgMat.uniforms.time.value += delta;
+
     renderer.render(scene,camera);
 }
 animate();
