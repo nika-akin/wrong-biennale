@@ -25,6 +25,8 @@ import * as THREE from 'https://esm.sh/three@0.160.0';
 import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
 import SimplexNoise from 'https://esm.sh/simplex-noise@3.0.0';
+import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
 
 
 // --- Scene, Camera, Renderer ---
@@ -188,42 +190,55 @@ const bgPlane = new THREE.Mesh(bgGeo, bgMat);
 bgScene.add(bgPlane);
 
 // --- FPS Pointer Lock Controls ---
+let controls;
 let move = {forward:false, backward:false, left:false, right:false};
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 let pitch = 0, yaw = 0;
 let pointerLocked = false;
 
-document.getElementById('instructions').addEventListener('click', () => {
-    document.body.requestPointerLock();
-});
+if (/Mobi|Android/i.test(navigator.userAgent)) {
+  // ---- Mobile: OrbitControls ----
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.screenSpacePanning = false;
+  controls.minDistance = 10;
+  controls.maxDistance = 200;
+  controls.maxPolarAngle = Math.PI / 2; // prevent flipping
+  document.getElementById('instructions').style.display = 'none'; // hide "Click" text on mobile
+} else {
+  // ---- Desktop: Pointer Lock ----
+  document.getElementById('instructions').addEventListener('click', () => {
+      document.body.requestPointerLock();
+  });
 
-document.addEventListener('pointerlockchange', () => {
-    pointerLocked = document.pointerLockElement === document.body;
-    document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
-});
+  document.addEventListener('pointerlockchange', () => {
+      pointerLocked = document.pointerLockElement === document.body;
+      document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
+  });
 
-document.addEventListener('mousemove', (e) => {
-    if (!pointerLocked) return;
-    yaw -= e.movementX * 0.002;
-    pitch -= e.movementY * 0.002;
-    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-    camera.rotation.set(pitch, yaw, 0);
-});
+  document.addEventListener('mousemove', (e) => {
+      if (!pointerLocked) return;
+      yaw -= e.movementX * 0.002;
+      pitch -= e.movementY * 0.002;
+      pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+      camera.rotation.set(pitch, yaw, 0);
+  });
 
-document.addEventListener('keydown', e => {
-    if (e.code==='KeyW') move.forward=true;
-    if (e.code==='KeyS') move.backward=true;
-    if (e.code==='KeyA') move.left=true;
-    if (e.code==='KeyD') move.right=true;
-});
-document.addEventListener('keyup', e => {
-    if (e.code==='KeyW') move.forward=false;
-    if (e.code==='KeyS') move.backward=false;
-    if (e.code==='KeyA') move.left=false;
-    if (e.code==='KeyD') move.right=false;
-});
-
+  document.addEventListener('keydown', e => {
+      if (e.code==='KeyW') move.forward=true;
+      if (e.code==='KeyS') move.backward=true;
+      if (e.code==='KeyA') move.left=true;
+      if (e.code==='KeyD') move.right=true;
+  });
+  document.addEventListener('keyup', e => {
+      if (e.code==='KeyW') move.forward=false;
+      if (e.code==='KeyS') move.backward=false;
+      if (e.code==='KeyA') move.left=false;
+      if (e.code==='KeyD') move.right=false;
+  });
+}
 
 // --- GLTFLoader with DRACOLoader ---
 const loader = new GLTFLoader();
@@ -294,6 +309,9 @@ animate();
 window.addEventListener('resize', ()=>{
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
+// Update OrbitControls if on mobile
+if (controls && controls.update) controls.update();
+
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
