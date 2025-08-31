@@ -100,7 +100,9 @@ loader.load(
         model.position.set(0,1,0);
         model.rotation.y = Math.PI; // rotate if needed
         model.scale.set(2,2,2); // adjust to fit camera view
-    model.position.y = 4;
+   // model.position.y = 4;
+ // place astronaut directly 5 units in front of camera, slightly lower
+        model.position.copy(camera.position).add(new THREE.Vector3(0, -1, -5));
         scene.add(model);
 // --- Set initial yaw so camera faces astronaut ---
         const dx = model.position.x - camera.position.x;
