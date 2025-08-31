@@ -97,12 +97,20 @@ void main() {
     float glitch = step(0.98, n); // rare, bright glitch pixels
     color = mix(color, vec3(1.0,0.1,0.5), glitch);
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color, 0.8);
 }
 `
 });
 
-const glitchMesh = new THREE.Mesh(glitchGeo, glitchMat);
+const glitchMat = new THREE.ShaderMaterial({
+    uniforms: { time: { value: 0.0 } },
+    vertexShader: vertexShaderCode,
+    fragmentShader: fragmentShaderCode,
+    transparent: true,
+    side: THREE.DoubleSide
+});
+
+
 scene.add(glitchMesh);
 
 
