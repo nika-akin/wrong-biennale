@@ -69,11 +69,12 @@ const glitchMat = new THREE.ShaderMaterial({
     void main() {
       float freq = 0.08;
       float amp = 12.0;
-      float h = sin(position.x * freq + time*1.0) * cos(position.z * freq*0.9 + time*1);
+      float h = sin(position.x * freq + time*1.0) * cos(position.z * freq*0.9 + time*1.0);
       h += sin((position.x+position.z) * freq*1.5 - time*1.7);
       h *= amp;
       vHeight = h;
-      vec3 displaced = position + normal * h * 0.1;
+      vec3 displaced = position + vec3(0.0, h * 0.1, 0.0);
+
       gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
     }
   `,
