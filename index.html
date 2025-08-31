@@ -45,11 +45,51 @@ dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
 // --- Floor ---
-const floorGeo = new THREE.PlaneGeometry(200,200);
-const floorMat = new THREE.MeshStandardMaterial({color:0x222222});
-const floor = new THREE.Mesh(floorGeo,floorMat);
-floor.rotation.x = -Math.PI/2;
-scene.add(floor);
+// --- Alien Glitch Terrain ---
+const glitchGeo = new THREE.PlaneGeometry(300, 300, 256, 256);
+glitchGeo.rotateX(-Math.PI / 2);
+
+const glitchMat = new THREE.ShaderMaterial({
+  uniforms: { 
+    time: { value: 0.0 }
+  },
+  vertexShader: `
+    uniform float time;
+    varying float vHeight;
+    void main() {
+      float freq = 0.08;
+      float amp = 12.0;
+      float h = sin(position.x * freq + time*3.0) * cos(position.z * freq*1.2 + time*2.5);
+      h += sin((position.x+position.z) * freq*1.5 - time*1.7);
+      h *= amp;
+      vHeight = h;
+      vec3 displaced = position + normal * h * 0.1;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform float time;
+    varying float vHeight;
+    void main() {
+      float n = fract(sin(vHeight*12.9898 + time*50.233) * 43758.5453);
+      float glitch = step(0.95, n);
+      vec3 base = vec3(0.1 + 0.4*fract(n*5.0), 0.1 + 0.4*fract(n*3.0), 0.1 + 0.4*fract(n*7.0));
+      vec3 color = mix(base, vec3(1.0,0.1,0.5), glitch);
+      gl_FragColor = vec4(color, 1.0);
+    }
+  `,
+  wireframe: false,
+  side: THREE.DoubleSide
+});
+
+// render as points (point cloud) instead of solid mesh
+const glitchPoints = new THREE.Points(glitchGeo, glitchMat);
+scene.add(glitchPoints);
+
+// animate the glitch terrain
+function updateGlitchTerrain(delta) {
+  glitchMat.uniforms.time.value += delta;
+}
 
 /* ---------- TERRAIN  ---------- */
 
