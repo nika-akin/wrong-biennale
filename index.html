@@ -92,8 +92,9 @@ const glitchMat = new THREE.ShaderMaterial({
   side: THREE.DoubleSide
 });
 
-const glitchPoints = new THREE.Points(glitchGeo, glitchMat);
-scene.add(glitchPoints);
+const glitchMesh = new THREE.Mesh(glitchGeo, glitchMat);
+scene.add(glitchMesh);
+
 
 /* ---------- Fog for atmosphere ---------- */
 scene.fog = new THREE.FogExp2(0x000000, 0.005);
