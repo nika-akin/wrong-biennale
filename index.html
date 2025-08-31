@@ -171,7 +171,7 @@ const bgMat = new THREE.ShaderMaterial({
       gl_FragColor = vec4(col, 1.0);
     }
   `,
-  depthWrite: false,
+  depthWrite: true,
   depthTest: false,
   side: THREE.DoubleSide
 });
