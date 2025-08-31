@@ -176,9 +176,6 @@ const bgMat = new THREE.ShaderMaterial({
   side: THREE.DoubleSide
 });
 
-const bgPlane = new THREE.Mesh(bgGeo, bgMat);
-bgPlane.renderOrder = -1; // make sure it's rendered behind everything
-scene.add(bgPlane);
 
 // Create an orthographic camera for the background
 const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
