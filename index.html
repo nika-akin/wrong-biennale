@@ -102,7 +102,7 @@ void main() {
 `
 });
 
-const glitchMat = new THREE.ShaderMaterial({
+glitchMat = new THREE.ShaderMaterial({
     uniforms: { time: { value: 0.0 } },
     vertexShader: vertexShaderCode,
     fragmentShader: fragmentShaderCode,
