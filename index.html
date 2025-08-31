@@ -69,7 +69,7 @@ const glitchMat = new THREE.ShaderMaterial({
     void main() {
       float freq = 0.08;
       float amp = 12.0;
-      float h = sin(position.x * freq + time*3.0) * cos(position.z * freq*1.2 + time*2.5);
+      float h = sin(position.x * freq + time*1.0) * cos(position.z * freq*0.9 + time*1);
       h += sin((position.x+position.z) * freq*1.5 - time*1.7);
       h *= amp;
       vHeight = h;
@@ -77,20 +77,29 @@ const glitchMat = new THREE.ShaderMaterial({
       gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
     }
   `,
-  fragmentShader: `
-    uniform float time;
-    varying float vHeight;
-    void main() {
-      float n = fract(sin(vHeight*12.9898 + time*50.233) * 43758.5453);
-      float glitch = step(0.95, n);
-      vec3 base = vec3(0.1 + 0.4*fract(n*5.0), 0.1 + 0.4*fract(n*3.0), 0.1 + 0.4*fract(n*7.0));
-      vec3 color = mix(base, vec3(1.0,0.1,0.5), glitch);
-      gl_FragColor = vec4(color, 1.0);
-    }
-  `,
-  wireframe: false,
-  side: THREE.DoubleSide
-});
+fragmentShader: `
+uniform float time;
+varying float vHeight;
+
+void main() {
+    // --- base gradient based on height ---
+    float baseGrey = 0.1 + 0.5 * fract(vHeight * 0.05); // valleys darker, peaks lighter
+    vec3 base = vec3(baseGrey);
+
+    // --- subtle peak tint ---
+    vec3 peakColor = vec3(0.3, 0.1, 0.4);
+    float peakFactor = smoothstep(2.0, 12.0, vHeight);
+    vec3 color = mix(base, peakColor, peakFactor);
+
+    // --- algorithmic glitch highlights ---
+    float n = fract(sin(vHeight*12.9898 + time*10.0) * 43758.5453);
+    float glitch = step(0.98, n); // rare, bright glitch pixels
+    color = mix(color, vec3(1.0,0.1,0.5), glitch);
+
+    gl_FragColor = vec4(color, 1.0);
+}
+`
+);
 
 const glitchMesh = new THREE.Mesh(glitchGeo, glitchMat);
 scene.add(glitchMesh);
