@@ -24,6 +24,8 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
+import SimplexNoise from 'https://esm.sh/simplex-noise@3.0.0';
+
 
 // --- Scene, Camera, Renderer ---
 const scene = new THREE.Scene();
@@ -48,6 +50,47 @@ const floorMat = new THREE.MeshStandardMaterial({color:0x222222});
 const floor = new THREE.Mesh(floorGeo,floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
+
+/* ---------- TERRAIN + MODEL PLACEMENT ---------- */
+
+// Simplex noise for terrain
+const simplex = new SimplexNoise();
+
+// Terrain parameters — tweak if you want
+const terrainSize = 300;        // overall width/depth
+const terrainSegments = 128;    // subdivisions (128 => ~16k verts); lower if slow
+const terrainFreq = 0.02;       // noise frequency (lower = big hills)
+const terrainAmp = 6.0;         // amplitude / height of hills
+
+// Create plane geometry and rotate to XZ
+const terrainGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments);
+terrainGeo.rotateX(-Math.PI / 2);
+
+const pos = terrainGeo.attributes.position;
+for (let i = 0; i < pos.count; i++) {
+  const x = pos.getX(i);
+  const z = pos.getZ(i);
+  const y = simplex.noise2D(x * terrainFreq, z * terrainFreq) * terrainAmp;
+  pos.setY(i, y);
+}
+terrainGeo.computeVertexNormals();
+
+const terrainMat = new THREE.MeshStandardMaterial({
+  color: 0x596b3a,
+  roughness: 1.0,
+  metalness: 0.0,
+});
+const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+terrainMesh.receiveShadow = true;
+scene.add(terrainMesh);
+
+// Add a little fog so depth reads nicer
+scene.fog = new THREE.FogExp2(0x000000, 0.0035);
+
+// Helper: get terrain height at world X,Z (same function used to build terrain)
+function getHeightAt(x, z) {
+  return simplex.noise2D(x * terrainFreq, z * terrainFreq) * terrainAmp;
+}
 
 // --- FPS Pointer Lock Controls ---
 let move = {forward:false, backward:false, left:false, right:false};
@@ -94,44 +137,25 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 
 loader.load(
-  './models/rigid_astronaut.glb',
-  (gltf) => {
-    const model = gltf.scene;
+    './models/rigid_astronaut.glb',
+    gltf => {
+        const model = gltf.scene;
+        model.position.set(0,1,0);
+        model.rotation.y = Math.PI; // rotate if needed
+        model.scale.set(2,2,2); // adjust to fit camera view
+    model.position.y = 4;
+        scene.add(model);
+// --- Set initial yaw so camera faces astronaut ---
+        const dx = model.position.x - camera.position.x;
+        const dz = model.position.z - camera.position.z;
+        yaw = Math.atan2(dx, dz); // rotate horizontally toward astronaut
+        pitch = 0; // optional: keep level
+        camera.rotation.set(pitch, yaw, 0);
+    },
 
-    // 1) scale first
-    model.scale.set(2, 2, 2);
-
-    // 2) put the model's *feet* on the floor (y=0)
-    model.updateMatrixWorld(true);
-    const bbox = new THREE.Box3().setFromObject(model);
-    model.position.y -= bbox.min.y;     // lift so base sits at y = 0
-    model.position.y += 0.1;            // tiny offset to avoid z-fighting with floor
-
-    // 3) place the model IN FRONT of the camera (horizontally)
-    const forward = new THREE.Vector3();
-    camera.getWorldDirection(forward);  // camera look dir
-    forward.y = 0;                      // keep it on the ground plane
-    forward.normalize();
-    const dist = 6;                     // how far in front
-    model.position.x = camera.position.x + forward.x * dist;
-    model.position.z = camera.position.z + forward.z * dist;
-
-    // 4) rotate the model if needed (kept from your setup)
-    model.rotation.y = Math.PI;
-
-    scene.add(model);
-
-    // 5) set the initial yaw so the camera *faces* the model
-    const dx = model.position.x - camera.position.x;
-    const dz = model.position.z - camera.position.z;
-    yaw = Math.atan2(dx, -dz);          // correct yaw for three's -Z forward
-    pitch = 0;
-    camera.rotation.set(pitch, yaw, 0);
-  },
-  (xhr) => console.log((xhr.loaded / xhr.total) * 100 + '% loaded'),
-  (error) => console.error(error)
+    xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
+    error => console.error(error)
 );
-
 
 // --- Animation Loop ---
 const clock = new THREE.Clock();
