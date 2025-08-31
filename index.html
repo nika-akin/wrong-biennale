@@ -102,9 +102,13 @@ loader.load(
         model.scale.set(2,2,2); // adjust to fit camera view
     model.position.y = 4;
         scene.add(model);
+// --- Set initial yaw so camera faces astronaut ---
+        const dx = model.position.x - camera.position.x;
+        const dz = model.position.z - camera.position.z;
+        yaw = Math.atan2(dx, dz); // rotate horizontally toward astronaut
+        pitch = 0; // optional: keep level
+        camera.rotation.set(pitch, yaw, 0);
     },
-// Center camera view on the model
-camera.lookAt(model.position);
 
     xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
     error => console.error(error)
