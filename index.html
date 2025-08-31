@@ -86,6 +86,12 @@ document.addEventListener('keyup', e => {
     if (e.code==='KeyD') move.right=false;
 });
 
+const terrainGeo = new THREE.PlaneGeometry(200, 200, 100, 100);
+const terrainMat = new THREE.MeshStandardMaterial({ color: 0x444444, wireframe:false });
+const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+terrain.rotation.x = -Math.PI/2;
+scene.add(terrain);
+
 // --- GLTFLoader with DRACOLoader ---
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
@@ -102,6 +108,9 @@ loader.load(
     model.position.y = 4;
         scene.add(model);
     },
+// Center camera view on the model
+camera.lookAt(model.position);
+
     xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
     error => console.error(error)
 );
