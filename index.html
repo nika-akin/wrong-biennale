@@ -261,8 +261,12 @@ loader.load(
         yaw = Math.atan2(dx, dz); // rotate horizontally toward astronaut
         pitch = 0; // optional: keep level
         camera.rotation.set(pitch, yaw, 0);
+ // --- Mobile: make OrbitControls look at astronaut ---
+        if (controls) {
+            controls.target.copy(model.position);
+            controls.update();
+        }
     },
-
     xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
     error => console.error(error)
 );
