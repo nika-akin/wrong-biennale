@@ -45,7 +45,17 @@ dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
 // --- Floor ---
-// --- Alien Glitch Terrain ---
+const floorGeo = new THREE.PlaneGeometry(200,200);
+const floorMat = new THREE.MeshStandardMaterial({color:0x222222});
+const floor = new THREE.Mesh(floorGeo,floorMat);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+/* ---------- TERRAIN  ---------- */
+
+/* ---------- ALIEN TERRAIN ---------- */
+
+/* --- Alien Glitch Terrain --- */
 const glitchGeo = new THREE.PlaneGeometry(300, 300, 256, 256);
 glitchGeo.rotateX(-Math.PI / 2);
 
@@ -59,6 +69,7 @@ const glitchMat = new THREE.ShaderMaterial({
     void main() {
       float freq = 0.08;
       float amp = 12.0;
+      // glitchy height, using sin/cos instead of smooth noise
       float h = sin(position.x * freq + time*3.0) * cos(position.z * freq*1.2 + time*2.5);
       h += sin((position.x+position.z) * freq*1.5 - time*1.7);
       h *= amp;
@@ -71,10 +82,11 @@ const glitchMat = new THREE.ShaderMaterial({
     uniform float time;
     varying float vHeight;
     void main() {
+      // glitch colors: grayscale with digital noise overlay
       float n = fract(sin(vHeight*12.9898 + time*50.233) * 43758.5453);
-      float glitch = step(0.95, n);
+      float glitch = step(0.95, n); // bright "pixels"
       vec3 base = vec3(0.1 + 0.4*fract(n*5.0), 0.1 + 0.4*fract(n*3.0), 0.1 + 0.4*fract(n*7.0));
-      vec3 color = mix(base, vec3(1.0,0.1,0.5), glitch);
+      vec3 color = mix(base, vec3(1.0,0.1,0.5), glitch); // occasional neon magenta glitch
       gl_FragColor = vec4(color, 1.0);
     }
   `,
@@ -82,90 +94,16 @@ const glitchMat = new THREE.ShaderMaterial({
   side: THREE.DoubleSide
 });
 
-// render as points (point cloud) instead of solid mesh
+// render as points (point cloud) for more density
 const glitchPoints = new THREE.Points(glitchGeo, glitchMat);
 scene.add(glitchPoints);
 
-// animate the glitch terrain
+// animate
 function updateGlitchTerrain(delta) {
   glitchMat.uniforms.time.value += delta;
 }
 
-/* ---------- TERRAIN  ---------- */
-
-/* ---------- ALIEN TERRAIN ---------- */
-
-const simplex = new SimplexNoise();
-
-const terrainSize = 300;
-const terrainSegments = 128;
-const terrainFreq = 0.05;  // higher frequency → more chaotic
-const terrainAmp = 18.0;   // much taller spikes
-
-// Geometry
-const terrainGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments);
-terrainGeo.rotateX(-Math.PI / 2);
-
-// Make terrain spiky & alien
-const pos = terrainGeo.attributes.position;
-for (let i = 0; i < pos.count; i++) {
-  const x = pos.getX(i);
-  const z = pos.getZ(i);
-
-  // Layered noise → spiky fractal feel
-  let y = 0;
-  let amp = terrainAmp;
-  let freq = terrainFreq;
-  for (let o = 0; o < 4; o++) {
-    y += Math.abs(simplex.noise2D(x * freq, z * freq)) * amp;
-    freq *= 2.0;
-    amp *= 0.5;
-  }
-
-  pos.setY(i, y);
-}
-terrainGeo.computeVertexNormals();
-
-/* ---------- Alien Shader Material ---------- */
-const alienMat = new THREE.ShaderMaterial({
-  uniforms: {
-    time: { value: 0.0 }
-  },
-  vertexShader: `
-    varying vec3 vNormal;
-    varying vec3 vPos;
-    void main() {
-      vNormal = normalize(normalMatrix * normal);
-      vPos = position;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform float time;
-    varying vec3 vNormal;
-    varying vec3 vPos;
-
-    void main() {
-      // Iridescent alien colors based on position + time
-      float intensity = abs(sin(time*0.5 + vPos.x*0.05 + vPos.z*0.05));
-      vec3 baseColor = vec3(
-        0.5 + 0.5*sin(vPos.x*0.1 + time),
-        0.5 + 0.5*sin(vPos.z*0.1 + time*1.2),
-        0.5 + 0.5*sin((vPos.x+vPos.z)*0.1 - time*0.8)
-      );
-
-      // Add spiky highlight based on normal
-      float highlight = pow(max(dot(vNormal, vec3(0.2,1.0,0.3)), 0.0), 2.0);
-      vec3 color = mix(baseColor, vec3(1.0,0.2,1.0), highlight * intensity);
-
-      gl_FragColor = vec4(color, 1.0);
-    }
-  `,
-  side: THREE.DoubleSide
-});
-
-const terrainMesh = new THREE.Mesh(terrainGeo, alienMat);
-scene.add(terrainMesh);
+updateTerrainShader(delta);
 
 /* ---------- Fog for atmosphere ---------- */
 scene.fog = new THREE.FogExp2(0x000000, 0.005);
