@@ -86,11 +86,6 @@ document.addEventListener('keyup', e => {
     if (e.code==='KeyD') move.right=false;
 });
 
-const terrainGeo = new THREE.PlaneGeometry(200, 200, 100, 100);
-const terrainMat = new THREE.MeshStandardMaterial({ color: 0x444444, wireframe:false });
-const terrain = new THREE.Mesh(terrainGeo, terrainMat);
-terrain.rotation.x = -Math.PI/2;
-scene.add(terrain);
 
 // --- GLTFLoader with DRACOLoader ---
 const loader = new GLTFLoader();
