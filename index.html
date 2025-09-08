@@ -24,10 +24,7 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
-import SimplexNoise from 'https://esm.sh/simplex-noise@3.0.0';
 import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-
-
 
 // --- Scene, Camera, Renderer ---
 const scene = new THREE.Scene();
@@ -53,18 +50,12 @@ const floor = new THREE.Mesh(floorGeo,floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-/* ---------- TERRAIN  ---------- */
-
-/* ---------- ALIEN TERRAIN ---------- */
-
-/* --- Alien Glitch Terrain --- */
+/* ---------- Alien Glitch Terrain ---------- */
 const glitchGeo = new THREE.PlaneGeometry(300, 300, 256, 256);
 glitchGeo.rotateX(-Math.PI / 2);
 
 const glitchMat = new THREE.ShaderMaterial({
-  uniforms: { 
-    time: { value: 0.0 }
-  },
+  uniforms: { time: { value: 0.0 } },
   vertexShader: `
     uniform float time;
     varying float vHeight;
@@ -76,120 +67,79 @@ const glitchMat = new THREE.ShaderMaterial({
       h *= amp;
       vHeight = h;
       vec3 displaced = position + vec3(0.0, h * 0.1, 0.0);
-
       gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
     }
   `,
-fragmentShader: `
-uniform float time;
-varying float vHeight;
-
-void main() {
-    // --- base gradient based on height ---
-    float baseGrey = 0.1 + 0.5 * fract(vHeight * 0.05); // valleys darker, peaks lighter
-    vec3 base = vec3(baseGrey);
-
-    // --- subtle peak tint ---
-    vec3 peakColor = vec3(0.3, 0.1, 0.4);
-    float peakFactor = smoothstep(2.0, 12.0, vHeight);
-    vec3 color = mix(base, peakColor, peakFactor);
-
-    // --- algorithmic glitch highlights ---
-    float n = fract(sin(vHeight*12.9898 + time*10.0) * 43758.5453);
-    float glitch = step(0.98, n); // rare, bright glitch pixels
-    color = mix(color, vec3(1.0,0.1,0.5), glitch);
-
-    gl_FragColor = vec4(color, 0.8);
-}
-`
+  fragmentShader: `
+    uniform float time;
+    varying float vHeight;
+    void main() {
+      float baseGrey = 0.1 + 0.5 * fract(vHeight * 0.05);
+      vec3 base = vec3(baseGrey);
+      vec3 peakColor = vec3(0.3, 0.1, 0.4);
+      float peakFactor = smoothstep(2.0, 12.0, vHeight);
+      vec3 color = mix(base, peakColor, peakFactor);
+      float n = fract(sin(vHeight*12.9898 + time*10.0) * 43758.5453);
+      float glitch = step(0.98, n);
+      color = mix(color, vec3(1.0,0.1,0.5), glitch);
+      gl_FragColor = vec4(color, 0.8);
+    }
+  `
 });
-
 const glitchMesh = new THREE.Mesh(glitchGeo, glitchMat);
-
-
 scene.add(glitchMesh);
 
-
-/* ---------- Fog for atmosphere ---------- */
+// --- Fog ---
 scene.fog = new THREE.FogExp2(0x000000, 0.005);
 
-/* ---------- Animate alien shimmer ---------- */
 function updateGlitchTerrain(delta) {
   glitchMat.uniforms.time.value += delta;
 }
 
-
-// --- Background protoplasm plane ---
-const bgGeo = new THREE.PlaneGeometry(2, 2); // covers the screen
+// --- Background protoplasm shader ---
+const bgGeo = new THREE.PlaneGeometry(2, 2);
 const bgMat = new THREE.ShaderMaterial({
   uniforms: {
     time: { value: 0 },
     resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
   },
-  vertexShader: `
-    void main() {
-      gl_Position = vec4(position, 1.0);
-    }
-  `,
+  vertexShader: `void main(){ gl_Position = vec4(position,1.0); }`,
   fragmentShader: `
     uniform float time;
     uniform vec2 resolution;
-    
-    // Minimal fbm + noise functions (simplified)
-    mat3 m = mat3( 0.00, 0.80, 0.60,
-                   -0.80, 0.36, -0.48,
-                   -0.60, -0.48, 0.64 );
-
-    float hash(float n) {
-      return fract(sin(n)*43758.5453);
+    mat3 m = mat3(0.00,0.80,0.60, -0.80,0.36,-0.48, -0.60,-0.48,0.64);
+    float hash(float n){ return fract(sin(n)*43758.5453); }
+    float noise(in vec3 x){
+      vec3 p=floor(x); vec3 f=fract(x); f=f*f*(3.-2.*f);
+      float n=p.x+p.y*57.+113.*p.z;
+      return mix(mix(mix(hash(n+0.),hash(n+1.),f.x),
+                     mix(hash(n+57.),hash(n+58.),f.x),f.y),
+                 mix(mix(hash(n+113.),hash(n+114.),f.x),
+                     mix(hash(n+170.),hash(n+171.),f.x),f.y),f.z);
     }
-
-    float noise(in vec3 x) {
-      vec3 p = floor(x);
-      vec3 f = fract(x);
-      f = f*f*(3.-2.*f);
-      float n = p.x + p.y*57. + 113.*p.z;
-      float res = mix(mix(mix(hash(n+0.), hash(n+1.), f.x),
-                          mix(hash(n+57.), hash(n+58.), f.x), f.y),
-                      mix(mix(hash(n+113.), hash(n+114.), f.x),
-                          mix(hash(n+170.), hash(n+171.), f.x), f.y), f.z);
-      return res;
+    float fbm(vec3 p){
+      float f=0.0; f+=0.5*noise(p); p=m*p*2.02;
+      f+=0.25*noise(p); p=m*p*2.03;
+      f+=0.125*noise(p); p=m*p*2.01;
+      f+=0.0625*noise(p); return f;
     }
-
-    float fbm(vec3 p) {
-      float f;
-      f  = 0.5*noise(p); p = m*p*2.02;
-      f += 0.25*noise(p); p = m*p*2.03;
-      f += 0.125*noise(p); p = m*p*2.01;
-      f += 0.0625*noise(p);
-      return f;
-    }
-
-    void main() {
-      vec2 uv = gl_FragCoord.xy / resolution.xy;
-      vec3 p = vec3(uv*4.0, time*0.1);
-      float f = fbm(p);
-      vec3 col = vec3(f*0.1, f*0.2, f*0.1); // greenish alien hues
-      gl_FragColor = vec4(col, 1.0);
+    void main(){
+      vec2 uv=gl_FragCoord.xy/resolution.xy;
+      vec3 p=vec3(uv*4.0,time*0.1);
+      float f=fbm(p);
+      vec3 col=vec3(f*0.1,f*0.2,f*0.1);
+      gl_FragColor=vec4(col,1.0);
     }
   `,
   depthWrite: true,
   depthTest: false,
   side: THREE.DoubleSide
 });
-
-
-// Create an orthographic camera for the background
-const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const bgScene = new THREE.Scene();
+const bgCamera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+bgScene.add(new THREE.Mesh(bgGeo, bgMat));
 
-// Background plane
-
-
-const bgPlane = new THREE.Mesh(bgGeo, bgMat);
-bgScene.add(bgPlane);
-
-// --- FPS Pointer Lock Controls ---
+// --- Controls ---
 let controls;
 let move = {forward:false, backward:false, left:false, right:false};
 let velocity = new THREE.Vector3();
@@ -198,125 +148,136 @@ let pitch = 0, yaw = 0;
 let pointerLocked = false;
 
 if (/Mobi|Android/i.test(navigator.userAgent)) {
-  // ---- Mobile: OrbitControls ----
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
-  controls.screenSpacePanning = false;
   controls.minDistance = 10;
   controls.maxDistance = 200;
-  controls.maxPolarAngle = Math.PI / 2; // prevent flipping
-  document.getElementById('instructions').style.display = 'none'; // hide "Click" text on mobile
+  controls.maxPolarAngle = Math.PI/2;
+  document.getElementById('instructions').style.display = 'none';
 } else {
-  // ---- Desktop: Pointer Lock ----
   document.getElementById('instructions').addEventListener('click', () => {
-      document.body.requestPointerLock();
+    document.body.requestPointerLock();
   });
-
   document.addEventListener('pointerlockchange', () => {
-      pointerLocked = document.pointerLockElement === document.body;
-      document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
+    pointerLocked = document.pointerLockElement === document.body;
+    document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
   });
-
   document.addEventListener('mousemove', (e) => {
-      if (!pointerLocked) return;
-      yaw -= e.movementX * 0.002;
-      pitch -= e.movementY * 0.002;
-      pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-      camera.rotation.set(pitch, yaw, 0);
+    if (!pointerLocked) return;
+    yaw -= e.movementX * 0.002;
+    pitch -= e.movementY * 0.002;
+    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+    camera.rotation.set(pitch, yaw, 0);
   });
-
-  document.addEventListener('keydown', e => {
-      if (e.code==='KeyW') move.forward=true;
-      if (e.code==='KeyS') move.backward=true;
-      if (e.code==='KeyA') move.left=true;
-      if (e.code==='KeyD') move.right=true;
+  document.addEventListener('keydown', e=>{
+    if(e.code==='KeyW') move.forward=true;
+    if(e.code==='KeyS') move.backward=true;
+    if(e.code==='KeyA') move.left=true;
+    if(e.code==='KeyD') move.right=true;
   });
-  document.addEventListener('keyup', e => {
-      if (e.code==='KeyW') move.forward=false;
-      if (e.code==='KeyS') move.backward=false;
-      if (e.code==='KeyA') move.left=false;
-      if (e.code==='KeyD') move.right=false;
+  document.addEventListener('keyup', e=>{
+    if(e.code==='KeyW') move.forward=false;
+    if(e.code==='KeyS') move.backward=false;
+    if(e.code==='KeyA') move.left=false;
+    if(e.code==='KeyD') move.right=false;
   });
 }
 
-// --- GLTFLoader with DRACOLoader ---
+// --- GLTFLoader ---
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 
-loader.load(
-    './models/rigid_astronaut.glb',
-    gltf => {
-        const model = gltf.scene;
-        model.position.set(0,1,0);
-        model.rotation.y = Math.PI; // rotate if needed
-        model.scale.set(2,2,2); // adjust to fit camera view
-    model.position.y = 4;
-        scene.add(model);
-// --- Set initial yaw so camera faces astronaut ---
-        const dx = model.position.x - camera.position.x;
-        const dz = model.position.z - camera.position.z;
-        yaw = Math.atan2(dx, dz); // rotate horizontally toward astronaut
-        pitch = 0; // optional: keep level
-        camera.rotation.set(pitch, yaw, 0);
- // --- Mobile: make OrbitControls look at astronaut ---
-        if (controls) {
-            controls.target.copy(model.position);
-            controls.update();
-        }
-    },
-    xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
-    error => console.error(error)
-);
+let mixer = null;
 
-// --- Animation Loop ---
+loader.load('./models/rigid_astronaut.glb', gltf => {
+  console.log('GLTF loaded', gltf);
+  const model = gltf.scene || gltf.scenes[0];
+  model.position.set(0,1,0);
+  model.scale.set(2,2,2);
+  model.position.y = 4;
+  scene.add(model);
+
+  if (gltf.animations && gltf.animations.length > 0) {
+    mixer = new THREE.AnimationMixer(model);
+    gltf.animations.forEach((clip) => {
+      const action = mixer.clipAction(clip);
+      action.play();
+    });
+    console.log('Playing', gltf.animations.length, 'clips');
+  } else {
+    console.log('No animations in GLTF');
+  }
+
+  if (controls) {
+    controls.target.copy(model.position);
+    controls.update();
+  } else {
+    const dx = model.position.x - camera.position.x;
+    const dz = model.position.z - camera.position.z;
+    yaw = Math.atan2(dx, dz);
+    camera.rotation.set(0, yaw, 0);
+  }
+
+  // --- Audio ---
+  const listener = new THREE.AudioListener();
+  camera.add(listener);
+  const bgSound = new THREE.Audio(listener);
+  const audioLoader = new THREE.AudioLoader();
+  audioLoader.load('./models/ambience.mp3', buffer => {
+    bgSound.setBuffer(buffer);
+    bgSound.setLoop(true);
+    bgSound.setVolume(0.4);
+    function startSoundOnce() {
+      if (!bgSound.isPlaying) bgSound.play();
+      document.removeEventListener('click', startSoundOnce);
+      document.removeEventListener('touchstart', startSoundOnce);
+    }
+    document.addEventListener('click', startSoundOnce, {passive:true});
+    document.addEventListener('touchstart', startSoundOnce, {passive:true});
+  });
+}, xhr=>console.log((xhr.loaded/xhr.total*100)+'% loaded'), err=>console.error(err));
+
+// --- Animate ---
 const clock = new THREE.Clock();
 function animate() {
-    requestAnimationFrame(animate);
-    const delta = clock.getDelta();
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
 
-    // Smooth movement damping
-    velocity.x -= velocity.x * 10.0 * delta;
-    velocity.z -= velocity.z * 10.0 * delta;
+  if (mixer) mixer.update(delta);
 
-    // Direction
-    direction.z = Number(move.forward) - Number(move.backward);
-    direction.x = Number(move.right) - Number(move.left);
-    direction.normalize();
+  velocity.x -= velocity.x*10.0*delta;
+  velocity.z -= velocity.z*10.0*delta;
+  direction.z = Number(move.forward) - Number(move.backward);
+  direction.x = Number(move.right) - Number(move.left);
+  direction.normalize();
+  if (move.forward||move.backward) velocity.z -= direction.z*50.0*delta;
+  if (move.left||move.right) velocity.x -= direction.x*50.0*delta;
+  const forward = new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
+  const right = new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
+  camera.position.addScaledVector(forward, velocity.z*delta);
+  camera.position.addScaledVector(right, velocity.x*delta);
 
-    if (move.forward || move.backward) velocity.z -= direction.z * 50.0 * delta;
-    if (move.left || move.right) velocity.x -= direction.x * 50.0 * delta;
+  if (controls) controls.update();
 
-    // Apply movement relative to camera yaw
-    const forward = new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
-    const right = new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
-    camera.position.addScaledVector(forward, velocity.z * delta);
-    camera.position.addScaledVector(right, velocity.x * delta);
-// ----- update glitch terrain -----
-    updateGlitchTerrain(delta);
- // Update terrain mesh time uniform
+  updateGlitchTerrain(delta);
   glitchMat.uniforms.time.value += delta;
-
-  // Update background plane time
   bgMat.uniforms.time.value += delta;
-   // Render background first
-    renderer.autoClear = true;
-    renderer.render(bgScene, bgCamera);
 
-    renderer.render(scene,camera);
+  renderer.render(bgScene, bgCamera);
+  renderer.clearDepth();
+  renderer.render(scene, camera);
 }
 animate();
 
-// --- Handle Window Resize ---
+// --- Resize ---
 window.addEventListener('resize', ()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-// Update OrbitControls if on mobile
-if (controls && controls.update) controls.update();
-
-    renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (controls) controls.update();
 });
 </script>
 </body>
