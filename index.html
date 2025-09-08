@@ -229,7 +229,7 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
   audioLoader.load('./models/fghiiiaa.wav', buffer => {
     bgSound.setBuffer(buffer);
     bgSound.setLoop(true);
-    bgSound.setVolume(0.4);
+    bgSound.setVolume(0.6);
     function startSoundOnce() {
       if (!bgSound.isPlaying) bgSound.play();
       document.removeEventListener('click', startSoundOnce);
