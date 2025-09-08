@@ -158,6 +158,10 @@ if (/Mobi|Android/i.test(navigator.userAgent)) {
 } else {
   document.getElementById('instructions').addEventListener('click', () => {
     document.body.requestPointerLock();
+  // also start sound here
+  if (!sound.isPlaying) sound.play();
+});
+
   });
   document.addEventListener('pointerlockchange', () => {
     pointerLocked = document.pointerLockElement === document.body;
