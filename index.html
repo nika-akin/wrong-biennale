@@ -217,10 +217,7 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
     console.log('No animations in GLTF');
   }
 
- // --- Get bounding box to center camera/controls on astronaut
-  const box = new THREE.Box3().setFromObject(model);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3()).length();
+
   if (controls) {
     controls.target.copy(model.position);
     controls.update();
