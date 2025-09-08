@@ -196,47 +196,40 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixer = null;
 
-loader.load(
-  './models/rigid_astronaut.glb',
-  gltf => {
-    // --- everything inside the success callback ---
-    const model = gltf.scene || gltf.scenes[0];
-    scene.add(model);
+loader.load('./models/rigid_astronaut.glb', gltf => {
+  console.log('GLTF loaded', gltf);
+  const model = gltf.scene || gltf.scenes[0];
+  model.position.set(0,1,0);
+  model.scale.set(2,2,2);
+  model.position.y = 4;
+  scene.add(model);
+  // --- Scale astronaut up so it’s visible compared to terrain
+  model.scale.set(5, 5, 5);
 
-    model.scale.set(5,5,5);
-    model.position.set(0,4,0);
+  if (gltf.animations && gltf.animations.length > 0) {
+    mixer = new THREE.AnimationMixer(model);
+    gltf.animations.forEach((clip) => {
+      const action = mixer.clipAction(clip);
+      action.play();
+    });
+    console.log('Playing', gltf.animations.length, 'clips');
+  } else {
+    console.log('No animations in GLTF');
+  }
 
-    if (gltf.animations && gltf.animations.length > 0) {
-      mixer = new THREE.AnimationMixer(model);
-      gltf.animations.forEach(clip => mixer.clipAction(clip).play());
-    }
-
-    // bounding box
-    const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3()).length();
-
-    // camera position
-    const distance = size * 2.0;
-    camera.position.copy(center.clone().add(new THREE.Vector3(0, size, distance)));
-    camera.lookAt(center);
-
-    if (controls) {
-      controls.target.copy(center);
-      controls.update();
-    } else {
-      const dx = center.x - camera.position.x;
-      const dz = center.z - camera.position.z;
-      yaw = Math.atan2(dx, dz);
-      camera.rotation.set(0, yaw, 0);
-    }
-  },
-  xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
-  error => console.error(error)
-);
-
-
-
+ // --- Get bounding box to center camera/controls on astronaut
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3()).length();
+  if (controls) {
+    controls.target.copy(model.position);
+    controls.update();
+  } else {
+    const dx = model.position.x - camera.position.x;
+    const dz = model.position.z - camera.position.z;
+    yaw = Math.atan2(dx, dz);
+    camera.rotation.set(0, yaw, 0);
+  }
 
   // --- Audio ---
   const listener = new THREE.AudioListener();
