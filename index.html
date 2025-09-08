@@ -199,11 +199,15 @@ let mixer = null;
 loader.load('./models/rigid_astronaut.glb', gltf => {
   console.log('GLTF loaded', gltf);
   const model = gltf.scene || gltf.scenes[0];
-  model.position.set(0, 0, 0);   // put astronaut at the world origin
-  model.scale.set(2, 2, 2);
   scene.add(model);
 
-  // --- animations ---
+  // --- Scale astronaut up so it’s visible compared to terrain
+  model.scale.set(5, 5, 5);
+
+  // --- Position astronaut at world origin, floating a little above terrain
+  model.position.set(0, 4, 0);
+
+  // --- Play animations if present
   if (gltf.animations && gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(model);
     gltf.animations.forEach((clip) => {
@@ -215,23 +219,31 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
     console.log('No animations in GLTF');
   }
 
-  // --- Center camera on astronaut ---
+  // --- Get bounding box to center camera/controls on astronaut
   const box = new THREE.Box3().setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3()).length();
 
+  // --- Set camera at a nice distance based on model size
+  const distance = size * 2.0;
+  camera.position.copy(center.clone().add(new THREE.Vector3(0, size, distance)));
+  camera.lookAt(center);
+
+  // --- Update OrbitControls or FPS yaw to focus astronaut
   if (controls) {
-    // OrbitControls: look at astronaut
     controls.target.copy(center);
     controls.update();
   } else {
-    // FPS / pointer lock: face astronaut
-    camera.position.set(center.x, center.y + 2, center.z + 5); // a bit behind and above
-    camera.lookAt(center);
-    yaw = Math.atan2(center.x - camera.position.x, center.z - camera.position.z);
-    pitch = 0;
-    camera.rotation.set(pitch, yaw, 0);
+    const dx = center.x - camera.position.x;
+    const dz = center.z - camera.position.z;
+    yaw = Math.atan2(dx, dz);
+    camera.rotation.set(0, yaw, 0);
   }
-});
+},
+xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
+error => console.error(error)
+);
+
 
 
   // --- Audio ---
