@@ -199,11 +199,11 @@ let mixer = null;
 loader.load('./models/rigid_astronaut.glb', gltf => {
   console.log('GLTF loaded', gltf);
   const model = gltf.scene || gltf.scenes[0];
-  model.position.set(0,1,0);
-  model.scale.set(2,2,2);
-  model.position.y = 4;
+  model.position.set(0, 0, 0);   // put astronaut at the world origin
+  model.scale.set(2, 2, 2);
   scene.add(model);
 
+  // --- animations ---
   if (gltf.animations && gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(model);
     gltf.animations.forEach((clip) => {
@@ -215,15 +215,24 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
     console.log('No animations in GLTF');
   }
 
+  // --- Center camera on astronaut ---
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+
   if (controls) {
-    controls.target.copy(model.position);
+    // OrbitControls: look at astronaut
+    controls.target.copy(center);
     controls.update();
   } else {
-    const dx = model.position.x - camera.position.x;
-    const dz = model.position.z - camera.position.z;
-    yaw = Math.atan2(dx, dz);
-    camera.rotation.set(0, yaw, 0);
+    // FPS / pointer lock: face astronaut
+    camera.position.set(center.x, center.y + 2, center.z + 5); // a bit behind and above
+    camera.lookAt(center);
+    yaw = Math.atan2(center.x - camera.position.x, center.z - camera.position.z);
+    pitch = 0;
+    camera.rotation.set(pitch, yaw, 0);
   }
+});
+
 
   // --- Audio ---
   const listener = new THREE.AudioListener();
