@@ -224,6 +224,9 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
     yaw = Math.atan2(dx, dz);
     camera.rotation.set(0, yaw, 0);
   }
+// Snap camera to look at astronaut
+  camera.lookAt(model.position);
+});
 
   // --- Audio ---
   const listener = new THREE.AudioListener();
