@@ -203,8 +203,6 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
   model.scale.set(2,2,2);
   model.position.y = 4;
   scene.add(model);
-  // --- Scale astronaut up so it’s visible compared to terrain
-  model.scale.set(5, 5, 5);
 
   if (gltf.animations && gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(model);
