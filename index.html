@@ -196,53 +196,45 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixer = null;
 
-loader.load('./models/rigid_astronaut.glb', gltf => {
-  console.log('GLTF loaded', gltf);
-  const model = gltf.scene || gltf.scenes[0];
-  scene.add(model);
+loader.load(
+  './models/rigid_astronaut.glb',
+  gltf => {
+    // --- everything inside the success callback ---
+    const model = gltf.scene || gltf.scenes[0];
+    scene.add(model);
 
-  // --- Scale astronaut up so it’s visible compared to terrain
-  model.scale.set(5, 5, 5);
+    model.scale.set(5,5,5);
+    model.position.set(0,4,0);
 
-  // --- Position astronaut at world origin, floating a little above terrain
-  model.position.set(0, 4, 0);
+    if (gltf.animations && gltf.animations.length > 0) {
+      mixer = new THREE.AnimationMixer(model);
+      gltf.animations.forEach(clip => mixer.clipAction(clip).play());
+    }
 
-  // --- Play animations if present
-  if (gltf.animations && gltf.animations.length > 0) {
-    mixer = new THREE.AnimationMixer(model);
-    gltf.animations.forEach((clip) => {
-      const action = mixer.clipAction(clip);
-      action.play();
-    });
-    console.log('Playing', gltf.animations.length, 'clips');
-  } else {
-    console.log('No animations in GLTF');
-  }
+    // bounding box
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3()).length();
 
-  // --- Get bounding box to center camera/controls on astronaut
-  const box = new THREE.Box3().setFromObject(model);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3()).length();
+    // camera position
+    const distance = size * 2.0;
+    camera.position.copy(center.clone().add(new THREE.Vector3(0, size, distance)));
+    camera.lookAt(center);
 
-  // --- Set camera at a nice distance based on model size
-  const distance = size * 2.0;
-  camera.position.copy(center.clone().add(new THREE.Vector3(0, size, distance)));
-  camera.lookAt(center);
-
-  // --- Update OrbitControls or FPS yaw to focus astronaut
-  if (controls) {
-    controls.target.copy(center);
-    controls.update();
-  } else {
-    const dx = center.x - camera.position.x;
-    const dz = center.z - camera.position.z;
-    yaw = Math.atan2(dx, dz);
-    camera.rotation.set(0, yaw, 0);
-  }
-},
-xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
-error => console.error(error)
+    if (controls) {
+      controls.target.copy(center);
+      controls.update();
+    } else {
+      const dx = center.x - camera.position.x;
+      const dz = center.z - camera.position.z;
+      yaw = Math.atan2(dx, dz);
+      camera.rotation.set(0, yaw, 0);
+    }
+  },
+  xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
+  error => console.error(error)
 );
+
 
 
 
