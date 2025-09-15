@@ -204,9 +204,8 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
   model.position.y = 4;
   scene.add(model);
 
-  // --- animations ---
+  // --- Animations ---
   if (gltf.animations && gltf.animations.length > 0) {
-    // One mixer for the whole scene
     const mixer = new THREE.AnimationMixer(model);
     gltf.animations.forEach((clip) => {
       console.log("Animation clip:", clip.name);
@@ -218,6 +217,7 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
     console.log('No animations in GLTF');
   }
 
+  // --- Camera controls ---
   if (controls) {
     controls.target.copy(model.position);
     controls.update();
@@ -227,9 +227,8 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
     yaw = Math.atan2(dx, dz);
     camera.rotation.set(0, yaw, 0);
   }
-});
-
-
+}, xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
+   err => console.error(err));
   // --- Audio ---
   const listener = new THREE.AudioListener();
   camera.add(listener);
