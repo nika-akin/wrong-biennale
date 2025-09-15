@@ -254,7 +254,8 @@ function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
 
-  if (mixer) mixer.update(delta);
+  mixers.forEach(m => m.update(delta));
+
 
   velocity.x -= velocity.x*10.0*delta;
   velocity.z -= velocity.z*10.0*delta;
