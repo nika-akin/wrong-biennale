@@ -196,7 +196,7 @@ loader.setDRACOLoader(dracoLoader);
 
 const mixers = [];
 
-loader.load('./models/aliens.glb', gltf => {
+loader.load('./models/rigid_astronaut.glb', gltf => {
     gltf.scene.traverse(child => {
         if (child.isMesh) scene.add(child);
     });
