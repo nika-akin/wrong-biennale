@@ -229,38 +229,46 @@ loader.load('./models/aliens.glb', gltf => {
 }, xhr=>console.log((xhr.loaded/xhr.total*100)+'% loaded'), err=>console.error(err));
 
 // --- Animate ---
+// --- Animate (replace your current animate function with this) ---
 const clock = new THREE.Clock();
+
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
-mixers.forEach(m => m.update(delta));
 
+  // update all animation mixers (one per loaded model/GLTF)
+  if (mixers && mixers.length) {
+    mixers.forEach(m => m.update(delta));
+  }
 
-  if (mixer) mixer.update(delta);
-
-  velocity.x -= velocity.x*10.0*delta;
-  velocity.z -= velocity.z*10.0*delta;
+  // your existing movement / controls code
+  velocity.x -= velocity.x * 10.0 * delta;
+  velocity.z -= velocity.z * 10.0 * delta;
   direction.z = Number(move.forward) - Number(move.backward);
   direction.x = Number(move.right) - Number(move.left);
   direction.normalize();
-  if (move.forward||move.backward) velocity.z -= direction.z*50.0*delta;
-  if (move.left||move.right) velocity.x -= direction.x*50.0*delta;
-  const forward = new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
-  const right = new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
-  camera.position.addScaledVector(forward, velocity.z*delta);
-  camera.position.addScaledVector(right, velocity.x*delta);
+  if (move.forward || move.backward) velocity.z -= direction.z * 50.0 * delta;
+  if (move.left || move.right) velocity.x -= direction.x * 50.0 * delta;
 
-  if (controls) controls.update();
+  const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
+  const right = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
+  camera.position.addScaledVector(forward, velocity.z * delta);
+  camera.position.addScaledVector(right, velocity.x * delta);
 
+  if (controls && controls.update) controls.update();
+
+  // shader updates
   updateGlitchTerrain(delta);
   glitchMat.uniforms.time.value += delta;
   bgMat.uniforms.time.value += delta;
 
+  // render background then scene
   renderer.render(bgScene, bgCamera);
   renderer.clearDepth();
   renderer.render(scene, camera);
 }
 animate();
+
 
 // --- Resize ---
 window.addEventListener('resize', ()=>{
