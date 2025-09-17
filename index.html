@@ -38,10 +38,29 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // --- Lights ---
-scene.add(new THREE.AmbientLight(0xffffff, 2));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-dirLight.position.set(10,20,10);
+//scene.add(new THREE.AmbientLight(0xffffff, 2));
+//const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+//dirLight.position.set(10,20,10);
+//scene.add(dirLight);
+
+
+// --- Lights ---
+const ambient = new THREE.AmbientLight(0x404040, 0.6);
+scene.add(ambient);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+dirLight.position.set(10, 20, 15);
+dirLight.castShadow = true;
 scene.add(dirLight);
+
+const fillLight = new THREE.PointLight(0x7722ff, 1.0, 50);
+fillLight.position.set(0, 3, 0);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0x88ccff, 1.0);
+rimLight.position.set(-10, 5, -10);
+scene.add(rimLight);
+
 
 // --- Floor ---
 const floorGeo = new THREE.PlaneGeometry(200,200);
@@ -50,25 +69,27 @@ const floor = new THREE.Mesh(floorGeo,floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// --- Alien Glitch Terrain ---
+/* ---------- Alien Glitch Terrain ---------- */
 const glitchGeo = new THREE.PlaneGeometry(300, 300, 256, 256);
-glitchGeo.rotateX(-Math.PI/2);
+glitchGeo.rotateX(-Math.PI / 2);
 
 const glitchMat = new THREE.ShaderMaterial({
-  uniforms: {
-    time: { value: 0.0 },
-    audioAmp: { value: 0.0 } // audio-reactive
-  },
+  uniforms: { time: { value: 0.0 } },
   vertexShader: `
     uniform float time;
-    uniform float audioAmp;
     varying float vHeight;
+
+    float wave(vec2 pos, float freq, float speed, float amp) {
+      return sin(pos.x * freq + time * speed) *
+             cos(pos.y * freq + time * speed) * amp;
+    }
+
     void main() {
-      float freq = 0.08;
-      float amp = 12.0;
-      float h = sin(position.x * freq + time*1.0) * cos(position.z * freq*0.9 + time*1.0);
-      h += sin((position.x+position.z) * freq*1.5 - time*1.7);
-      h *= amp * (1.0 + audioAmp); // react to audio
+      float h = 0.0;
+      h += wave(position.xz, 0.08, 1.0, 3.0);
+      h += wave(position.xz, 0.16, 1.4, 2.0);
+      h += wave(position.xz, 0.32, 0.7, 1.0);
+
       vHeight = h;
       vec3 displaced = position + vec3(0.0, h * 0.1, 0.0);
       gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
@@ -77,24 +98,30 @@ const glitchMat = new THREE.ShaderMaterial({
   fragmentShader: `
     uniform float time;
     varying float vHeight;
+
     void main() {
-      float baseGrey = 0.1 + 0.5 * fract(vHeight * 0.05);
-      vec3 base = vec3(baseGrey);
-      vec3 peakColor = vec3(0.3, 0.1, 0.4);
-      float peakFactor = smoothstep(2.0, 12.0, vHeight);
-      vec3 color = mix(base, peakColor, peakFactor);
-      float n = fract(sin(vHeight*12.9898 + time*10.0) * 43758.5453);
-      float glitch = step(0.98, n);
-      color = mix(color, vec3(1.0,0.1,0.5), glitch);
-      gl_FragColor = vec4(color, 0.8);
+      // base color
+      vec3 base = vec3(0.05, 0.05, 0.1);
+
+      // highlight color for peaks
+      vec3 peakColor = vec3(0.8, 0.2, 1.0);
+
+      // fresnel-like factor to make ridges glow
+      float fresnel = pow(1.0 - abs(normalize(vec3(vHeight,1.0,0.0)).y), 3.0);
+
+      vec3 color = mix(base, peakColor, fresnel);
+
+      gl_FragColor = vec4(color, 0.9);
     }
-  `
+  `,
+  transparent: true
 });
 const glitchMesh = new THREE.Mesh(glitchGeo, glitchMat);
 scene.add(glitchMesh);
 
 // --- Fog ---
 scene.fog = new THREE.FogExp2(0x000000, 0.005);
+
 function updateGlitchTerrain(delta) {
   glitchMat.uniforms.time.value += delta;
 }
@@ -161,6 +188,9 @@ if (/Mobi|Android/i.test(navigator.userAgent)) {
 } else {
   document.getElementById('instructions').addEventListener('click', () => {
     document.body.requestPointerLock();
+    if (sound && !sound.isPlaying) {
+      sound.play();
+    }
   });
   document.addEventListener('pointerlockchange', () => {
     pointerLocked = document.pointerLockElement === document.body;
@@ -195,29 +225,8 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixers = [];
 
-// --- Audio listener for both positional and reactive ---
-const listener = new THREE.AudioListener();
-camera.add(listener);
-const bgAudio = new THREE.Audio(listener);
-const analyser = new THREE.AudioAnalyser(bgAudio, 32);
-
-// Load background audio
-const audioLoader = new THREE.AudioLoader();
-audioLoader.load('./models/fghiiiaa.wav', (buffer) => {
-  bgAudio.setBuffer(buffer);
-  bgAudio.setLoop(true);
-  bgAudio.setVolume(0.6);
-  function startSound() {
-    if (!bgAudio.isPlaying) bgAudio.play();
-    document.removeEventListener('click', startSound);
-    document.removeEventListener('touchstart', startSound);
-  }
-  document.addEventListener('click', startSound, {passive:true});
-  document.addEventListener('touchstart', startSound, {passive:true});
-});
-
-// --- Load GLTF ---
 loader.load('./models/rigid_astronaut.glb', gltf => {
+  console.log('GLTF loaded', gltf);
   const model = gltf.scene || gltf.scenes[0];
   model.position.set(0,1,0);
   model.scale.set(2,2,2);
@@ -226,27 +235,18 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
 
   // --- Animations ---
   if (gltf.animations && gltf.animations.length > 0) {
-    const mixer = new THREE.AnimationMixer(model);
-    const action = mixer.clipAction(gltf.animations[0]);
-    action.play();
-    mixers.push(mixer);
+    const localMixer = new THREE.AnimationMixer(model);
+    gltf.animations.forEach(clip => {
+      const action = localMixer.clipAction(clip);
+      action.play();
+      console.log('Playing animation:', clip.name);
+    });
+    mixers.push(localMixer);
+  } else {
+    console.log('No animations in GLTF');
   }
 
-  // --- Positional audio on alien meshes ---
-  model.traverse((child) => {
-    if (child.isMesh) {
-      const posAudio = new THREE.PositionalAudio(listener);
-      audioLoader.load('./models/alien_voice.wav', (buffer) => {
-        posAudio.setBuffer(buffer);
-        posAudio.setRefDistance(3);
-        posAudio.setLoop(true);
-        posAudio.setVolume(0.7);
-        posAudio.play();
-      });
-      child.add(posAudio);
-    }
-  });
-
+  // --- Camera controls ---
   if (controls) {
     controls.target.copy(model.position);
     controls.update();
@@ -256,7 +256,28 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
     yaw = Math.atan2(dx, dz);
     camera.rotation.set(0, yaw, 0);
   }
+
+  // --- Audio ---
+
+  const listener = new THREE.AudioListener();
+  camera.add(listener);
+  const bgSound = new THREE.Audio(listener);
+  const audioLoader = new THREE.AudioLoader();
+  audioLoader.load('./models/fghiiiaa.wav', buffer => {
+    bgSound.setBuffer(buffer);
+    bgSound.setLoop(true);
+    bgSound.setVolume(0.6);
+    function startSoundOnce() {
+      if (!bgSound.isPlaying) bgSound.play();
+      document.removeEventListener('click', startSoundOnce);
+      document.removeEventListener('touchstart', startSoundOnce);
+    }
+    document.addEventListener('click', startSoundOnce, {passive:true});
+    document.addEventListener('touchstart', startSoundOnce, {passive:true});
+  });
 }, xhr=>console.log((xhr.loaded/xhr.total*100)+'% loaded'), err=>console.error(err));
+
+
 
 // --- Animate ---
 const clock = new THREE.Clock();
@@ -264,10 +285,10 @@ function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
 
-  // Update all mixers
-  mixers.forEach(m => m.update(delta));
+  if (mixers.length > 0) {
+    mixers.forEach(m => m.update(delta));
+  }
 
-  // FPS movement
   velocity.x -= velocity.x*10.0*delta;
   velocity.z -= velocity.z*10.0*delta;
   direction.z = Number(move.forward) - Number(move.backward);
@@ -282,9 +303,6 @@ function animate() {
 
   if (controls) controls.update();
 
-  // --- Update audio-reactive terrain ---
-  const audioData = analyser.getAverageFrequency() / 256;
-  glitchMat.uniforms.audioAmp.value = audioData;
   updateGlitchTerrain(delta);
   glitchMat.uniforms.time.value += delta;
   bgMat.uniforms.time.value += delta;
