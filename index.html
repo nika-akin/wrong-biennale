@@ -14,100 +14,49 @@
     color: white;
     font-family: sans-serif;
     font-size: 24px;
-    cursor: pointer;
+    user-select: none;
   }
 </style>
 </head>
 <body>
 <div id="instructions">Click to start FPS controls</div>
+
 <script type="module">
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
 import { PointerLockControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 
-// --- Scene, Camera, Renderer ---
+// --- Scene & Renderer ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
+
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+// Lowered starting position
+camera.position.set(0,2.5,10);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // --- Lights ---
-const ambient = new THREE.AmbientLight(0xffffff, 1.5);
-scene.add(ambient);
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
 dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
-// --- Floor ---
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(200,200), new THREE.MeshStandardMaterial({color:0x222222}));
-floor.rotation.x = -Math.PI/2;
-scene.add(floor);
-
-// --- Audio setup ---
-const listener = new THREE.AudioListener();
-camera.add(listener);
-const sound = new THREE.Audio(listener);
-const audioLoader = new THREE.AudioLoader();
-audioLoader.load('./models/fghiiiaa.wav', buffer => {
-    sound.setBuffer(buffer);
-    sound.setLoop(true);
-    sound.setVolume(0.5);
-});
-
-// --- Tidal wave particle setup ---
-const waveCount = 256;
-const waveGeometry = new THREE.BufferGeometry();
-const positions = new Float32Array(waveCount*waveCount*3);
-for(let i=0;i<waveCount*waveCount;i++){
-    positions[i*3+0] = (i % waveCount - waveCount/2);
-    positions[i*3+1] = 0;
-    positions[i*3+2] = (Math.floor(i/waveCount) - waveCount/2);
-}
-waveGeometry.setAttribute('position', new THREE.BufferAttribute(positions,3));
-
-const waveMaterial = new THREE.PointsMaterial({
-    color: 0x88ccff,
-    size: 0.15,
-    transparent: true,
-    opacity: 0.6
-});
-const wavePoints = new THREE.Points(waveGeometry, waveMaterial);
-scene.add(wavePoints);
-
-// --- GLTFLoader for alien ---
-const loader = new GLTFLoader();
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
-loader.setDRACOLoader(dracoLoader);
-
-let mixers = [];
-loader.load('./models/rigid_astronaut.glb', gltf => {
-    const model = gltf.scene;
-    model.position.set(0,0,0);
-    model.scale.set(2,2,2);
-    scene.add(model);
-    if(gltf.animations.length){
-        const mixer = new THREE.AnimationMixer(model);
-        const action = mixer.clipAction(gltf.animations[0]);
-        action.play();
-        mixers.push(mixer);
-    }
-});
-
 // --- Controls ---
-const controls = new PointerLockControls(camera, document.body);
-let move = {forward:false, backward:false, left:false, right:false};
+const controls = new PointerLockControls(camera, renderer.domElement);
+const move = {forward:false, backward:false, left:false, right:false};
 let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+
 document.getElementById('instructions').addEventListener('click', ()=>{
     controls.lock();
-    if(!sound.isPlaying) sound.play();
+    startAudio();
+    document.getElementById('instructions').style.display = 'none';
 });
 
-// --- Keyboard input ---
 document.addEventListener('keydown', e=>{
     if(e.code==='KeyW') move.forward=true;
     if(e.code==='KeyS') move.backward=true;
@@ -121,8 +70,83 @@ document.addEventListener('keyup', e=>{
     if(e.code==='KeyD') move.right=false;
 });
 
-// --- Audio analyser for wave height ---
-const analyser = new THREE.AudioAnalyser(sound, 256);
+// --- Load GLTF Alien ---
+const loader = new GLTFLoader();
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+loader.setDRACOLoader(dracoLoader);
+
+let mixers = [];
+loader.load('./models/rigid_astronaut.glb', gltf=>{
+    const model = gltf.scene || gltf.scenes[0];
+    const box = new THREE.Box3().setFromObject(model);
+    model.position.y = -box.min.y;
+    model.scale.set(2,2,2);
+    scene.add(model);
+
+    if(gltf.animations && gltf.animations.length>0){
+        const mixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach((clip)=>{
+            mixer.clipAction(clip).play();
+        });
+        mixers.push(mixer);
+    }
+}, xhr=>console.log((xhr.loaded/xhr.total*100)+'% loaded'), err=>console.error(err));
+
+// --- Audio & analyser ---
+const listener = new THREE.AudioListener();
+camera.add(listener);
+const sound = new THREE.Audio(listener);
+let analyser;
+
+function startAudio(){
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load('./models/fghiiiaa.wav', buffer=>{
+        sound.setBuffer(buffer);
+        sound.setLoop(true);
+        sound.setVolume(0.6);
+        sound.play();
+        analyser = new THREE.AudioAnalyser(sound, 128);
+    });
+}
+
+// --- Wave Plane (dense grid) ---
+const waveSize = 200;
+const waveSegments = 128;
+const waveGeo = new THREE.PlaneGeometry(waveSize, waveSize, waveSegments, waveSegments);
+waveGeo.rotateX(-Math.PI/2);
+
+const waveMat = new THREE.ShaderMaterial({
+    uniforms: {
+        time: { value: 0 },
+        audioAmp: { value: 0 }
+    },
+    vertexShader: `
+        uniform float time;
+        uniform float audioAmp;
+        varying float vHeight;
+        void main() {
+            vec3 pos = position;
+            pos.y += sin(pos.x*0.1 + time*2.0) * 1.5;
+            pos.y += sin(pos.z*0.1 + time*1.5) * 1.5;
+            pos.y += audioAmp * 5.0; // audio influence
+            vHeight = pos.y;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.0);
+        }
+    `,
+    fragmentShader: `
+        varying float vHeight;
+        void main() {
+            float gray = 0.1 + 0.2 * (vHeight*0.1 + 0.5);
+            gl_FragColor = vec4(vec3(gray),0.5);
+        }
+    `,
+    transparent: true,
+    side: THREE.DoubleSide
+});
+
+const waveMesh = new THREE.Mesh(waveGeo, waveMat);
+scene.add(waveMesh);
 
 // --- Animate ---
 const clock = new THREE.Clock();
@@ -130,31 +154,38 @@ function animate(){
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
 
-    // --- Update mixers ---
-    mixers.forEach(m => m.update(delta));
+    mixers.forEach(m=>m.update(delta));
 
-    // --- Movement ---
-    velocity.x -= velocity.x*10.0*delta;
-    velocity.z -= velocity.z*10.0*delta;
-    const direction = new THREE.Vector3(
-        (move.right?1:0)-(move.left?1:0),
-        0,
-        (move.backward?1:0)-(move.forward?1:0)
-    );
+    // Smooth WASD movement
+    velocity.x = THREE.MathUtils.lerp(velocity.x, 0, delta*8);
+    velocity.z = THREE.MathUtils.lerp(velocity.z, 0, delta*8);
+
+    direction.z = Number(move.forward) - Number(move.backward);
+    direction.x = Number(move.right) - Number(move.left);
     direction.normalize();
-    const forward = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-    const right = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
-    controls.getObject().position.addScaledVector(forward, direction.z*delta*10);
-    controls.getObject().position.addScaledVector(right, direction.x*delta*10);
 
-    // --- Update wave heights based on audio ---
-    const data = analyser.getFrequencyData();
-    const positions = waveGeometry.attributes.position.array;
-    for(let i=0;i<waveCount*waveCount;i++){
-        const idx = i%data.length;
-        positions[i*3+1] = data[idx]/50; // scale audio amplitude
+    if(move.forward||move.backward) velocity.z -= direction.z*50*delta;
+    if(move.left||move.right) velocity.x -= direction.x*50*delta;
+
+    // Move based on camera direction
+    const forwardVector = new THREE.Vector3();
+    controls.getDirection(forwardVector);
+    forwardVector.y = 0;
+    forwardVector.normalize();
+
+    const rightVector = new THREE.Vector3();
+    rightVector.crossVectors(forwardVector, new THREE.Vector3(0,1,0)).normalize();
+
+    camera.position.addScaledVector(forwardVector, velocity.z*delta);
+    camera.position.addScaledVector(rightVector, velocity.x*delta);
+
+    // Audio reactive
+    if(analyser){
+        const avg = analyser.getAverageFrequency()/256;
+        waveMat.uniforms.audioAmp.value = avg;
     }
-    waveGeometry.attributes.position.needsUpdate = true;
+
+    waveMat.uniforms.time.value += delta;
 
     renderer.render(scene,camera);
 }
