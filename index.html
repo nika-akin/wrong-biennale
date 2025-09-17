@@ -258,7 +258,8 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
   }
 
   // --- Audio ---
-// --- Audio Listener ---
+
+  // --- Audio Listener ---
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
@@ -278,23 +279,6 @@ gltf.scene.traverse((child) => {
   }
 });
 
-  const listener = new THREE.AudioListener();
-  camera.add(listener);
-  const bgSound = new THREE.Audio(listener);
-  const audioLoader = new THREE.AudioLoader();
-  audioLoader.load('./models/fghiiiaa.wav', buffer => {
-    bgSound.setBuffer(buffer);
-    bgSound.setLoop(true);
-    bgSound.setVolume(0.6);
-    function startSoundOnce() {
-      if (!bgSound.isPlaying) bgSound.play();
-      document.removeEventListener('click', startSoundOnce);
-      document.removeEventListener('touchstart', startSoundOnce);
-    }
-    document.addEventListener('click', startSoundOnce, {passive:true});
-    document.addEventListener('touchstart', startSoundOnce, {passive:true});
-  });
-}, xhr=>console.log((xhr.loaded/xhr.total*100)+'% loaded'), err=>console.error(err));
 
 // --- Animate ---
 const clock = new THREE.Clock();
