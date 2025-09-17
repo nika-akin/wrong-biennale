@@ -18,7 +18,7 @@
 </style>
 </head>
 <body>
-<div id="instructions">Click to start FPS controls & audio</div>
+<div id="instructions">Click to start FPS controls</div>
 
 <script type="module">
 import * as THREE from 'https://esm.sh/three@0.160.0';
@@ -38,8 +38,10 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // --- Lights ---
-scene.add(new THREE.AmbientLight(0xffffff, 2));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
@@ -50,27 +52,14 @@ const floor = new THREE.Mesh(floorGeo,floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// --- Audio setup ---
-let audio, analyser;
-const listener = new THREE.AudioListener();
-camera.add(listener);
-audio = new THREE.Audio(listener);
-const audioLoader = new THREE.AudioLoader();
-audioLoader.load('./models/fghiiiaa.wav', buffer => {
-  audio.setBuffer(buffer);
-  audio.setLoop(true);
-  audio.setVolume(0.5);
-  analyser = new THREE.AudioAnalyser(audio, 32);
-});
-
-// --- Terrain ---
-const terrainGeo = new THREE.PlaneGeometry(300, 300, 256, 256);
+// --- Alien Glitch Terrain (audio-reactive) ---
+const terrainGeo = new THREE.PlaneGeometry(300,300,256,256);
 terrainGeo.rotateX(-Math.PI/2);
 
 const terrainMat = new THREE.ShaderMaterial({
   uniforms: {
     time: { value: 0 },
-    audioAmp: { value: 0 }
+    audioAmp: { value: 0.0 }
   },
   vertexShader: `
     uniform float time;
@@ -78,73 +67,86 @@ const terrainMat = new THREE.ShaderMaterial({
     varying float vHeight;
     void main() {
       float freq = 0.08;
-      float amp = 2.0 + audioAmp*5.0; 
-      float h = sin(position.x*freq + time*1.0) * cos(position.z*freq*0.9 + time*1.0);
-      h += sin((position.x+position.z)*freq*1.5 - time*1.7);
+      float amp = 12.0;
+      float h = sin(position.x * freq + time) * cos(position.z * freq*0.9 + time);
+      h += sin((position.x+position.z) * freq*1.5 - time*1.7);
       h *= amp;
+      h *= 0.5 + audioAmp; // audio height influence
       vHeight = h;
-      vec3 displaced = position + vec3(0.0, h, 0.0);
+      vec3 displaced = position + vec3(0.0, h*0.1, 0.0);
       gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced,1.0);
     }
   `,
   fragmentShader: `
+    uniform float audioAmp;
     varying float vHeight;
     void main() {
-      float baseGrey = 0.1 + 0.5 * fract(vHeight*0.05);
-      vec3 base = vec3(baseGrey);
-      vec3 peakColor = vec3(0.3,0.1,0.4);
+      float baseGrey = 0.1 + 0.5 * fract(vHeight*0.05 + audioAmp*0.5);
+      vec3 base = vec3(baseGrey, 0.05 + audioAmp*0.3, 0.2 + audioAmp*0.3);
+      vec3 peakColor = vec3(0.3 + audioAmp*0.5,0.1 + audioAmp*0.3,0.4 + audioAmp*0.5);
       float peakFactor = smoothstep(2.0,12.0,vHeight);
       vec3 color = mix(base, peakColor, peakFactor);
-      gl_FragColor = vec4(color,0.9);
+      gl_FragColor = vec4(color,0.8);
     }
-  `,
-  side: THREE.DoubleSide
+  `
 });
+
 const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
 scene.add(terrainMesh);
 
 // --- Fog ---
 scene.fog = new THREE.FogExp2(0x000000, 0.005);
 
-// --- Controls ---
+// --- Background ---
+const bgGeo = new THREE.PlaneGeometry(2,2);
+const bgMat = new THREE.ShaderMaterial({
+  uniforms: { time:{value:0}, resolution:{value:new THREE.Vector2(window.innerWidth, window.innerHeight)} },
+  vertexShader:`void main(){ gl_Position=vec4(position,1.0); }`,
+  fragmentShader:`uniform float time; uniform vec2 resolution; void main(){ vec2 uv=gl_FragCoord.xy/resolution.xy; gl_FragColor=vec4(uv,0.3+0.2*sin(time),1.0); }`,
+  depthWrite:false, depthTest:false, side:THREE.DoubleSide
+});
+const bgScene = new THREE.Scene();
+const bgCamera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+bgScene.add(new THREE.Mesh(bgGeo,bgMat));
+
+// --- Controls & movement ---
 let controls;
-let move = {forward:false, backward:false, left:false, right:false};
+let move = {forward:false,backward:false,left:false,right:false};
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
-let pitch=0, yaw=0;
+let pitch=0,yaw=0;
 let pointerLocked=false;
 
-if (/Mobi|Android/i.test(navigator.userAgent)) {
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.05;
-  controls.minDistance = 10;
-  controls.maxDistance = 200;
-  controls.maxPolarAngle = Math.PI/2;
+if(/Mobi|Android/i.test(navigator.userAgent)){
+  controls = new OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true;
+  controls.dampingFactor=0.05;
+  controls.minDistance=10;
+  controls.maxDistance=200;
+  controls.maxPolarAngle=Math.PI/2;
   document.getElementById('instructions').style.display='none';
-} else {
-  document.getElementById('instructions').addEventListener('click', ()=>{
+}else{
+  document.getElementById('instructions').addEventListener('click',()=>{
     document.body.requestPointerLock();
-    if(audio && !audio.isPlaying) audio.play();
   });
-  document.addEventListener('pointerlockchange', ()=>{
-    pointerLocked = document.pointerLockElement === document.body;
-    document.getElementById('instructions').style.display = pointerLocked?'none':'block';
+  document.addEventListener('pointerlockchange',()=>{
+    pointerLocked = document.pointerLockElement===document.body;
+    document.getElementById('instructions').style.display=pointerLocked?'none':'block';
   });
-  document.addEventListener('mousemove', e=>{
+  document.addEventListener('mousemove',e=>{
     if(!pointerLocked) return;
-    yaw -= e.movementX * 0.002;
-    pitch -= e.movementY * 0.002;
-    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2,pitch));
+    yaw -= e.movementX*0.002;
+    pitch -= e.movementY*0.002;
+    pitch=Math.max(-Math.PI/2,Math.min(Math.PI/2,pitch));
     camera.rotation.set(pitch,yaw,0);
   });
-  document.addEventListener('keydown', e=>{
+  document.addEventListener('keydown',e=>{
     if(e.code==='KeyW') move.forward=true;
     if(e.code==='KeyS') move.backward=true;
     if(e.code==='KeyA') move.left=true;
     if(e.code==='KeyD') move.right=true;
   });
-  document.addEventListener('keyup', e=>{
+  document.addEventListener('keyup',e=>{
     if(e.code==='KeyW') move.forward=false;
     if(e.code==='KeyS') move.backward=false;
     if(e.code==='KeyA') move.left=false;
@@ -152,26 +154,25 @@ if (/Mobi|Android/i.test(navigator.userAgent)) {
   });
 }
 
-// --- Load GLB ---
+// --- GLTF Loader ---
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 
-let mixers=[];
+let mixers = [];
+let bgSound, analyser;
 
 loader.load('./models/rigid_astronaut.glb', gltf=>{
   const model = gltf.scene || gltf.scenes[0];
   model.position.set(0,1,0);
   model.scale.set(2,2,2);
-  model.position.y=4;
   scene.add(model);
 
-  if(gltf.animations && gltf.animations.length>0){
+  if(gltf.animations.length>0){
     const mixer = new THREE.AnimationMixer(model);
     gltf.animations.forEach(clip=>{
-      const action = mixer.clipAction(clip);
-      action.play();
+      mixer.clipAction(clip).play();
     });
     mixers.push(mixer);
   }
@@ -179,15 +180,36 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
   if(controls){
     controls.target.copy(model.position);
     controls.update();
-  } else {
-    const dx = model.position.x - camera.position.x;
-    const dz = model.position.z - camera.position.z;
-    yaw = Math.atan2(dx,dz);
+  }else{
+    const dx=model.position.x-camera.position.x;
+    const dz=model.position.z-camera.position.z;
+    yaw=Math.atan2(dx,dz);
     camera.rotation.set(0,yaw,0);
   }
+
+  // --- Audio ---
+  const listener = new THREE.AudioListener();
+  camera.add(listener);
+  bgSound = new THREE.Audio(listener);
+  analyser = new THREE.AudioAnalyser(bgSound,32);
+
+  const audioLoader = new THREE.AudioLoader();
+  audioLoader.load('./models/fghiiiaa.wav', buffer=>{
+    bgSound.setBuffer(buffer);
+    bgSound.setLoop(true);
+    bgSound.setVolume(0.5);
+  });
+
+  function startAudio(){
+    if(!bgSound.isPlaying) bgSound.play();
+    document.removeEventListener('click',startAudio);
+    document.removeEventListener('touchstart',startAudio);
+  }
+  document.addEventListener('click',startAudio,{passive:true});
+  document.addEventListener('touchstart',startAudio,{passive:true});
 });
 
-// --- Animate ---
+// --- Animate loop ---
 const clock = new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
@@ -195,10 +217,7 @@ function animate(){
 
   mixers.forEach(m=>m.update(delta));
 
-  // --- Audio-reactive terrain ---
-  if(analyser) terrainMat.uniforms.audioAmp.value = analyser.getAverageFrequency()/32.0;
-
-  // --- WASD movement ---
+  // movement
   velocity.x -= velocity.x*10.0*delta;
   velocity.z -= velocity.z*10.0*delta;
   direction.z = Number(move.forward)-Number(move.backward);
@@ -213,17 +232,22 @@ function animate(){
 
   if(controls) controls.update();
 
+  // update terrain
   terrainMat.uniforms.time.value += delta;
+  bgMat.uniforms.time.value += delta;
+  if(analyser) terrainMat.uniforms.audioAmp.value = analyser.getAverageFrequency()/32.0;
 
+  renderer.render(bgScene,bgCamera);
+  renderer.clearDepth();
   renderer.render(scene,camera);
 }
 animate();
 
 // --- Resize ---
-window.addEventListener('resize', ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(window.innerWidth,window.innerHeight);
   if(controls) controls.update();
 });
 </script>
