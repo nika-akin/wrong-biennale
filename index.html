@@ -16,24 +16,44 @@
     font-size: 24px;
     user-select: none;
   }
+  #touchControls {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    text-align: center;
+    pointer-events: none;
+  }
+  .touchButton {
+    display: inline-block;
+    width: 60px;
+    height: 60px;
+    margin: 0 10px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 50%;
+    pointer-events: all;
+    touch-action: none;
+  }
 </style>
 </head>
 <body>
-<div id="instructions">Click to start FPS controls</div>
+<div id="instructions">Click or tap to start FPS controls</div>
+<div id="touchControls" style="display:none;">
+  <div class="touchButton" id="forwardBtn"></div>
+  <div class="touchButton" id="backwardBtn"></div>
+</div>
 
 <script type="module">
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
 import { PointerLockControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
+import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
 // --- Scene & Renderer ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-// Lowered starting position
-camera.position.set(0,2.5,10);
+camera.position.set(0,2,10);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -46,29 +66,50 @@ dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
 // --- Controls ---
-const controls = new PointerLockControls(camera, renderer.domElement);
-const move = {forward:false, backward:false, left:false, right:false};
+let move = {forward:false, backward:false, left:false, right:false};
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
+let pointerControls, orbitControls;
+let isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
-document.getElementById('instructions').addEventListener('click', ()=>{
-    controls.lock();
-    startAudio();
-    document.getElementById('instructions').style.display = 'none';
-});
-
-document.addEventListener('keydown', e=>{
+if(!isMobile){
+  pointerControls = new PointerLockControls(camera, renderer.domElement);
+  document.getElementById('instructions').addEventListener('click', ()=>{
+      pointerControls.lock();
+      startAudio();
+      document.getElementById('instructions').style.display='none';
+  });
+  document.addEventListener('keydown', e=>{
     if(e.code==='KeyW') move.forward=true;
     if(e.code==='KeyS') move.backward=true;
     if(e.code==='KeyA') move.left=true;
     if(e.code==='KeyD') move.right=true;
-});
-document.addEventListener('keyup', e=>{
+  });
+  document.addEventListener('keyup', e=>{
     if(e.code==='KeyW') move.forward=false;
     if(e.code==='KeyS') move.backward=false;
     if(e.code==='KeyA') move.left=false;
     if(e.code==='KeyD') move.right=false;
-});
+  });
+} else {
+  orbitControls = new OrbitControls(camera, renderer.domElement);
+  orbitControls.enableDamping = true;
+  orbitControls.dampingFactor = 0.05;
+  orbitControls.minDistance = 5;
+  orbitControls.maxDistance = 30;
+  orbitControls.maxPolarAngle = Math.PI/2.2;
+  document.getElementById('instructions').addEventListener('click', ()=>{
+      startAudio();
+      document.getElementById('instructions').style.display='none';
+      document.getElementById('touchControls').style.display='block';
+  });
+
+  // Touch buttons
+  document.getElementById('forwardBtn').addEventListener('touchstart', ()=>move.forward=true);
+  document.getElementById('forwardBtn').addEventListener('touchend', ()=>move.forward=false);
+  document.getElementById('backwardBtn').addEventListener('touchstart', ()=>move.backward=true);
+  document.getElementById('backwardBtn').addEventListener('touchend', ()=>move.backward=false);
+}
 
 // --- Load GLTF Alien ---
 const loader = new GLTFLoader();
@@ -78,125 +119,117 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixers = [];
 loader.load('./models/rigid_astronaut.glb', gltf=>{
-    const model = gltf.scene || gltf.scenes[0];
-    const box = new THREE.Box3().setFromObject(model);
-    model.position.y = -box.min.y;
-    model.scale.set(2,2,2);
-    scene.add(model);
+  const model = gltf.scene || gltf.scenes[0];
+  const box = new THREE.Box3().setFromObject(model);
+  model.position.y = -box.min.y;
+  model.scale.set(2,2,2);
+  scene.add(model);
 
-    if(gltf.animations && gltf.animations.length>0){
-        const mixer = new THREE.AnimationMixer(model);
-        gltf.animations.forEach((clip)=>{
-            mixer.clipAction(clip).play();
-        });
-        mixers.push(mixer);
-    }
+  if(gltf.animations && gltf.animations.length>0){
+      const mixer = new THREE.AnimationMixer(model);
+      gltf.animations.forEach((clip)=>mixer.clipAction(clip).play());
+      mixers.push(mixer);
+  }
 }, xhr=>console.log((xhr.loaded/xhr.total*100)+'% loaded'), err=>console.error(err));
 
-// --- Audio & analyser ---
+// --- Audio ---
 const listener = new THREE.AudioListener();
 camera.add(listener);
 const sound = new THREE.Audio(listener);
 let analyser;
 
 function startAudio(){
-    const audioLoader = new THREE.AudioLoader();
-    audioLoader.load('./models/fghiiiaa.wav', buffer=>{
-        sound.setBuffer(buffer);
-        sound.setLoop(true);
-        sound.setVolume(0.6);
-        sound.play();
-        analyser = new THREE.AudioAnalyser(sound, 128);
-    });
+  const audioLoader = new THREE.AudioLoader();
+  audioLoader.load('./models/fghiiiaa.wav', buffer=>{
+      sound.setBuffer(buffer);
+      sound.setLoop(true);
+      sound.setVolume(0.6);
+      sound.play();
+      analyser = new THREE.AudioAnalyser(sound, 128);
+  });
 }
 
-// --- Wave Plane (dense grid) ---
+// --- Wave Plane ---
 const waveSize = 200;
 const waveSegments = 128;
 const waveGeo = new THREE.PlaneGeometry(waveSize, waveSize, waveSegments, waveSegments);
 waveGeo.rotateX(-Math.PI/2);
 
 const waveMat = new THREE.ShaderMaterial({
-    uniforms: {
-        time: { value: 0 },
-        audioAmp: { value: 0 }
-    },
-    vertexShader: `
-        uniform float time;
-        uniform float audioAmp;
-        varying float vHeight;
-        void main() {
-            vec3 pos = position;
-            pos.y += sin(pos.x*0.1 + time*2.0) * 1.5;
-            pos.y += sin(pos.z*0.1 + time*1.5) * 1.5;
-            pos.y += audioAmp * 5.0; // audio influence
-            vHeight = pos.y;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.0);
-        }
-    `,
-    fragmentShader: `
-        varying float vHeight;
-        void main() {
-            float gray = 0.1 + 0.2 * (vHeight*0.1 + 0.5);
-            gl_FragColor = vec4(vec3(gray),0.5);
-        }
-    `,
-    transparent: true,
-    side: THREE.DoubleSide
+  uniforms:{
+    time: {value:0},
+    audioAmp: {value:0}
+  },
+  vertexShader: `
+    uniform float time;
+    uniform float audioAmp;
+    varying float vHeight;
+    void main(){
+        vec3 pos = position;
+        pos.y += sin(pos.x*0.1 + time*2.0) * 1.0; // lower amplitude
+        pos.y += sin(pos.z*0.1 + time*1.5) * 1.0;
+        pos.y += audioAmp * 3.0; // audio influence
+        vHeight = pos.y;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.0);
+    }
+  `,
+  fragmentShader: `
+    varying float vHeight;
+    void main(){
+      float gray = 0.1 + 0.2 * (vHeight*0.1 + 0.5);
+      gl_FragColor = vec4(vec3(gray),0.5);
+    }
+  `,
+  transparent:true,
+  side:THREE.DoubleSide
 });
-
 const waveMesh = new THREE.Mesh(waveGeo, waveMat);
-waveMesh.position.y = -0.8; // lower the waves slightly
 scene.add(waveMesh);
 
 // --- Animate ---
 const clock = new THREE.Clock();
 function animate(){
-    requestAnimationFrame(animate);
-    const delta = clock.getDelta();
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  mixers.forEach(m=>m.update(delta));
 
-    mixers.forEach(m=>m.update(delta));
+  // Movement
+  velocity.x -= velocity.x*10*delta;
+  velocity.z -= velocity.z*10*delta;
+  direction.z = Number(move.forward)-Number(move.backward);
+  direction.x = Number(move.right)-Number(move.left);
+  direction.normalize();
+  if(direction.z) velocity.z -= direction.z*50*delta;
+  if(direction.x) velocity.x -= direction.x*50*delta;
 
-    // Smooth WASD movement
-    velocity.x = THREE.MathUtils.lerp(velocity.x, 0, delta*8);
-    velocity.z = THREE.MathUtils.lerp(velocity.z, 0, delta*8);
+  if(pointerControls) {
+      const forward = new THREE.Vector3(Math.sin(camera.rotation.y),0,-Math.cos(camera.rotation.y));
+      const right = new THREE.Vector3(Math.cos(camera.rotation.y),0,Math.sin(camera.rotation.y));
+      camera.position.addScaledVector(forward, velocity.z*delta);
+      camera.position.addScaledVector(right, velocity.x*delta);
+  } else if(orbitControls) {
+      const forward = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+      const right = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
+      camera.position.addScaledVector(forward, velocity.z*delta);
+      camera.position.addScaledVector(right, velocity.x*delta);
+      orbitControls.update();
+  }
 
-    direction.z = Number(move.forward) - Number(move.backward);
-    direction.x = Number(move.right) - Number(move.left);
-    direction.normalize();
+  // Audio reactive
+  if(analyser){
+      waveMat.uniforms.audioAmp.value = analyser.getAverageFrequency()/256;
+  }
+  waveMat.uniforms.time.value += delta;
 
-    if(move.forward||move.backward) velocity.z -= direction.z*50*delta;
-    if(move.left||move.right) velocity.x -= direction.x*50*delta;
-
-    // Move based on camera direction
-    const forwardVector = new THREE.Vector3();
-    controls.getDirection(forwardVector);
-    forwardVector.y = 0;
-    forwardVector.normalize();
-
-    const rightVector = new THREE.Vector3();
-    rightVector.crossVectors(forwardVector, new THREE.Vector3(0,1,0)).normalize();
-
-    camera.position.addScaledVector(forwardVector, velocity.z*delta);
-    camera.position.addScaledVector(rightVector, velocity.x*delta);
-
-    // Audio reactive
-    if(analyser){
-        const avg = analyser.getAverageFrequency()/256;
-        waveMat.uniforms.audioAmp.value = avg;
-    }
-
-    waveMat.uniforms.time.value += delta;
-
-    renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 animate();
 
 // --- Resize ---
 window.addEventListener('resize', ()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
