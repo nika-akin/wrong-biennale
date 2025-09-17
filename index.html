@@ -194,36 +194,20 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 
-let mixer = null;
+const mixers = [];
 
-loader.load('./models/rigid_astronaut.glb', gltf => {
-  console.log('GLTF loaded', gltf);
-  const model = gltf.scene || gltf.scenes[0];
-  model.position.set(0,1,0);
-  model.scale.set(2,2,2);
-  model.position.y = 4;
-  scene.add(model);
+loader.load('./models/aliens.glb', gltf => {
+    gltf.scene.traverse(child => {
+        if (child.isMesh) scene.add(child);
+    });
 
-  if (gltf.animations && gltf.animations.length > 0) {
-  mixer = new THREE.AnimationMixer(model);
-  const action = mixer.clipAction(gltf.animations[0]); // merged "Animation"
-  action.play();
-  console.log('Playing merged animation:', gltf.animations[0].name);
-} else {
-  console.log('No animations in GLTF');
-}
+    if (gltf.animations.length > 0) {
+        const mixer = new THREE.AnimationMixer(gltf.scene);
+        gltf.animations.forEach(clip => mixer.clipAction(clip).play());
+        mixers.push(mixer);
+    }
 
 
-
-  if (controls) {
-    controls.target.copy(model.position);
-    controls.update();
-  } else {
-    const dx = model.position.x - camera.position.x;
-    const dz = model.position.z - camera.position.z;
-    yaw = Math.atan2(dx, dz);
-    camera.rotation.set(0, yaw, 0);
-  }
 
   // --- Audio ---
   const listener = new THREE.AudioListener();
@@ -249,6 +233,8 @@ const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
+mixers.forEach(m => m.update(delta));
+
 
   if (mixer) mixer.update(delta);
 
