@@ -258,6 +258,26 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
   }
 
   // --- Audio ---
+// --- Audio Listener ---
+const listener = new THREE.AudioListener();
+camera.add(listener);
+
+// --- Positional Audio for each alien ---
+gltf.scene.traverse((child) => {
+  if (child.isMesh) {
+    const posAudio = new THREE.PositionalAudio(listener);
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load('./models/alien_voice.wav', (buffer) => {
+      posAudio.setBuffer(buffer);
+      posAudio.setRefDistance(3); // distance for attenuation
+      posAudio.setLoop(true);
+      posAudio.setVolume(0.7);
+      posAudio.play();
+    });
+    child.add(posAudio);
+  }
+});
+
   const listener = new THREE.AudioListener();
   camera.add(listener);
   const bgSound = new THREE.Audio(listener);
