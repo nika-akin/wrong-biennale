@@ -29,18 +29,15 @@ import { PointerLockControls } from 'https://esm.sh/three@0.160.0/examples/jsm/c
 // --- Scene, Camera, Renderer ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 camera.position.set(0,2,5);
-
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // --- Lights ---
-const ambient = new THREE.AmbientLight(0xffffff, 1.5);
-scene.add(ambient);
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
 dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
@@ -51,46 +48,26 @@ const floor = new THREE.Mesh(floorGeo,floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// --- Audio Setup ---
+// --- Audio ---
 const listener = new THREE.AudioListener();
 camera.add(listener);
 const sound = new THREE.PositionalAudio(listener);
+let analyser;
 const audioLoader = new THREE.AudioLoader();
 audioLoader.load('./models/fghiiiaa.wav', buffer => {
-  sound.setBuffer(buffer);
-  sound.setLoop(true);
-  sound.setRefDistance(5);
-  sound.setVolume(0.6);
+    sound.setBuffer(buffer);
+    sound.setLoop(true);
+    sound.setRefDistance(5);
+    sound.setVolume(0.7);
+    scene.add(sound);
+    analyser = new THREE.AudioAnalyser(sound, 64);
 });
-scene.add(sound); // attach to scene for now
 
-const audioContext = listener.context;
-const analyser = new THREE.AudioAnalyser(sound, 64);
-
-// --- Point Cloud Terrain ---
-const size = 300;
-const segments = 128;
-const points = [];
-for(let i=0;i<=segments;i++){
-  for(let j=0;j<=segments;j++){
-    const x = (i/segments - 0.5) * size;
-    const z = (j/segments - 0.5) * size;
-    points.push(x, 0, z);
-  }
+function startAudio() {
+    if(sound && !sound.isPlaying){
+        sound.play();
+    }
 }
-
-const terrainGeo = new THREE.BufferGeometry();
-terrainGeo.setAttribute('position', new THREE.Float32BufferAttribute(points,3));
-
-const terrainMat = new THREE.PointsMaterial({
-  color: 0x00ffff,
-  size: 0.7,
-  transparent: true,
-  opacity: 0.5
-});
-
-const terrain = new THREE.Points(terrainGeo, terrainMat);
-scene.add(terrain);
 
 // --- Controls ---
 const controls = new PointerLockControls(camera, renderer.domElement);
@@ -98,25 +75,25 @@ const move = {forward:false, backward:false, left:false, right:false};
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 
-document.getElementById('instructions').addEventListener('click', () => {
-  controls.lock();
-  if (!sound.isPlaying) sound.play();
+document.getElementById('instructions').addEventListener('click', ()=>{
+    controls.lock();
+    startAudio();
 });
 
 document.addEventListener('keydown', e=>{
-  if(e.code==='KeyW') move.forward=true;
-  if(e.code==='KeyS') move.backward=true;
-  if(e.code==='KeyA') move.left=true;
-  if(e.code==='KeyD') move.right=true;
+    if(e.code==='KeyW') move.forward=true;
+    if(e.code==='KeyS') move.backward=true;
+    if(e.code==='KeyA') move.left=true;
+    if(e.code==='KeyD') move.right=true;
 });
 document.addEventListener('keyup', e=>{
-  if(e.code==='KeyW') move.forward=false;
-  if(e.code==='KeyS') move.backward=false;
-  if(e.code==='KeyA') move.left=false;
-  if(e.code==='KeyD') move.right=false;
+    if(e.code==='KeyW') move.forward=false;
+    if(e.code==='KeyS') move.backward=false;
+    if(e.code==='KeyA') move.left=false;
+    if(e.code==='KeyD') move.right=false;
 });
 
-// --- GLTF Loader ---
+// --- Load GLTF Alien ---
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
@@ -124,80 +101,113 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixers = [];
 
-loader.load('./models/rigid_astronaut.glb', gltf => {
-  const model = gltf.scene || gltf.scenes[0];
+loader.load('./models/rigid_astronaut.glb', gltf=>{
+    const model = gltf.scene || gltf.scenes[0];
 
-  // --- Align model so bottom touches y=0 ---
-  const box = new THREE.Box3().setFromObject(model);
-  const height = box.max.y - box.min.y;
-  model.position.y = -box.min.y; 
+    // Align model bottom to y=0
+    const box = new THREE.Box3().setFromObject(model);
+    model.position.y = -box.min.y;
+    model.scale.set(2,2,2);
+    scene.add(model);
 
-  model.scale.set(2,2,2);
-  scene.add(model);
+    // Animations
+    if(gltf.animations && gltf.animations.length>0){
+        const mixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach((clip)=>{
+            mixer.clipAction(clip).play();
+        });
+        mixers.push(mixer);
+    }
 
-  if (gltf.animations && gltf.animations.length > 0) {
-    const mixer = new THREE.AnimationMixer(model);
-    gltf.animations.forEach((clip)=>{
-      const action = mixer.clipAction(clip);
-      action.play();
-    });
-    mixers.push(mixer);
-  }
-
-  // Attach positional audio to model
-  model.add(sound);
-
+    // Attach positional audio to alien
+    model.add(sound);
 }, xhr=>console.log((xhr.loaded/xhr.total*100)+'% loaded'), err=>console.error(err));
+
+// --- Point Cloud Swarm ---
+const swarmCount = 3000;
+const swarmPositions = new Float32Array(swarmCount*3);
+const swarmVelocities = new Float32Array(swarmCount*3);
+for(let i=0;i<swarmCount;i++){
+    swarmPositions[i*3+0] = (Math.random()-0.5)*200;
+    swarmPositions[i*3+1] = Math.random()*20 + 1;
+    swarmPositions[i*3+2] = (Math.random()-0.5)*200;
+    swarmVelocities[i*3+0] = (Math.random()-0.5)*0.2;
+    swarmVelocities[i*3+1] = (Math.random()-0.5)*0.2;
+    swarmVelocities[i*3+2] = (Math.random()-0.5)*0.2;
+}
+
+const swarmGeo = new THREE.BufferGeometry();
+swarmGeo.setAttribute('position', new THREE.BufferAttribute(swarmPositions,3));
+
+const swarmMat = new THREE.PointsMaterial({
+    color: 0x00ffff,
+    size: 0.5,
+    transparent:true,
+    opacity:0.5
+});
+
+const swarm = new THREE.Points(swarmGeo, swarmMat);
+scene.add(swarm);
 
 // --- Animate ---
 const clock = new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  const delta = clock.getDelta();
+function animate(){
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
 
-  mixers.forEach(m=>m.update(delta));
+    mixers.forEach(m=>m.update(delta));
 
-  // --- Movement ---
-  velocity.x -= velocity.x*10.0*delta;
-  velocity.z -= velocity.z*10.0*delta;
+    // WASD movement
+    velocity.x -= velocity.x*10*delta;
+    velocity.z -= velocity.z*10*delta;
 
-  direction.z = Number(move.forward) - Number(move.backward);
-  direction.x = Number(move.right) - Number(move.left);
-  direction.normalize();
+    direction.z = Number(move.forward) - Number(move.backward);
+    direction.x = Number(move.right) - Number(move.left);
+    direction.normalize();
 
-  if(move.forward||move.backward) velocity.z -= direction.z*50.0*delta;
-  if(move.left||move.right) velocity.x -= direction.x*50.0*delta;
+    if(move.forward||move.backward) velocity.z -= direction.z*50*delta;
+    if(move.left||move.right) velocity.x -= direction.x*50*delta;
 
-  const forward = new THREE.Vector3(Math.sin(camera.rotation.y),0,-Math.cos(camera.rotation.y));
-  const right = new THREE.Vector3(Math.cos(camera.rotation.y),0,Math.sin(camera.rotation.y));
+    const forward = new THREE.Vector3(Math.sin(camera.rotation.y),0,-Math.cos(camera.rotation.y));
+    const right = new THREE.Vector3(Math.cos(camera.rotation.y),0,Math.sin(camera.rotation.y));
+    camera.position.addScaledVector(forward, velocity.z*delta);
+    camera.position.addScaledVector(right, velocity.x*delta);
 
-  camera.position.addScaledVector(forward, velocity.z*delta);
-  camera.position.addScaledVector(right, velocity.x*delta);
+    // --- Swarm update ---
+    const positions = swarm.geometry.attributes.position.array;
+    for(let i=0;i<swarmCount;i++){
+        positions[i*3+0] += swarmVelocities[i*3+0];
+        positions[i*3+1] += swarmVelocities[i*3+1];
+        positions[i*3+2] += swarmVelocities[i*3+2];
 
-  // --- Update terrain with audio ---
-  if(sound.isPlaying){
-    const data = analyser.getFrequencyData();
-    const positions = terrain.geometry.attributes.position.array;
-    let idx=0;
-    for(let i=0;i<=segments;i++){
-      for(let j=0;j<=segments;j++){
-        const height = data[(i+j) % data.length] / 10; 
-        positions[idx+1] = height; // update y
-        idx+=3;
-      }
+        // Wrap around boundaries
+        if(positions[i*3+0]>100) positions[i*3+0]=-100;
+        if(positions[i*3+0]<-100) positions[i*3+0]=100;
+        if(positions[i*3+2]>100) positions[i*3+2]=-100;
+        if(positions[i*3+2]<-100) positions[i*3+2]=100;
+        if(positions[i*3+1]>50) positions[i*3+1]=1;
+        if(positions[i*3+1]<0) positions[i*3+1]=50;
     }
-    terrain.geometry.attributes.position.needsUpdate = true;
-  }
 
-  renderer.render(scene, camera);
+    // --- Audio reactive pulsation ---
+    if(analyser && sound.isPlaying){
+        const avg = analyser.getAverageFrequency()/256;
+        for(let i=0;i<swarmCount;i++){
+            positions[i*3+1] += (Math.random()-0.5)*avg; // pulse vertically
+        }
+    }
+
+    swarm.geometry.attributes.position.needsUpdate = true;
+
+    renderer.render(scene,camera);
 }
 animate();
 
 // --- Resize ---
 window.addEventListener('resize', ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
