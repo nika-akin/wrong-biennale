@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Berlinale Alien Walk - Audio Reactive</title>
+<title>Berlinale Alien Walk</title>
 <style>
   body { margin: 0; overflow: hidden; background: black; }
   canvas { display: block; }
@@ -18,7 +18,7 @@
 </style>
 </head>
 <body>
-<div id="instructions">Click to start</div>
+<div id="instructions">Click to start FPS controls & audio</div>
 
 <script type="module">
 import * as THREE from 'https://esm.sh/three@0.160.0';
@@ -26,54 +26,116 @@ import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GL
 import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
 import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
-// --- Scene ---
+// --- Scene, Camera, Renderer ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.FogExp2(0x000000, 0.005);
 
-// --- Camera ---
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,2,10);
+camera.position.set(0,2,5);
 
-// --- Renderer ---
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // --- Lights ---
 scene.add(new THREE.AmbientLight(0xffffff, 2));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
 dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
+// --- Floor ---
+const floorGeo = new THREE.PlaneGeometry(200,200);
+const floorMat = new THREE.MeshStandardMaterial({color:0x222222});
+const floor = new THREE.Mesh(floorGeo,floorMat);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+// --- Audio setup ---
+let audio, analyser;
+const listener = new THREE.AudioListener();
+camera.add(listener);
+audio = new THREE.Audio(listener);
+const audioLoader = new THREE.AudioLoader();
+audioLoader.load('./models/fghiiiaa.wav', buffer => {
+  audio.setBuffer(buffer);
+  audio.setLoop(true);
+  audio.setVolume(0.5);
+  analyser = new THREE.AudioAnalyser(audio, 32);
+});
+
+// --- Terrain ---
+const terrainGeo = new THREE.PlaneGeometry(300, 300, 256, 256);
+terrainGeo.rotateX(-Math.PI/2);
+
+const terrainMat = new THREE.ShaderMaterial({
+  uniforms: {
+    time: { value: 0 },
+    audioAmp: { value: 0 }
+  },
+  vertexShader: `
+    uniform float time;
+    uniform float audioAmp;
+    varying float vHeight;
+    void main() {
+      float freq = 0.08;
+      float amp = 2.0 + audioAmp*5.0; 
+      float h = sin(position.x*freq + time*1.0) * cos(position.z*freq*0.9 + time*1.0);
+      h += sin((position.x+position.z)*freq*1.5 - time*1.7);
+      h *= amp;
+      vHeight = h;
+      vec3 displaced = position + vec3(0.0, h, 0.0);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced,1.0);
+    }
+  `,
+  fragmentShader: `
+    varying float vHeight;
+    void main() {
+      float baseGrey = 0.1 + 0.5 * fract(vHeight*0.05);
+      vec3 base = vec3(baseGrey);
+      vec3 peakColor = vec3(0.3,0.1,0.4);
+      float peakFactor = smoothstep(2.0,12.0,vHeight);
+      vec3 color = mix(base, peakColor, peakFactor);
+      gl_FragColor = vec4(color,0.9);
+    }
+  `,
+  side: THREE.DoubleSide
+});
+const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+scene.add(terrainMesh);
+
+// --- Fog ---
+scene.fog = new THREE.FogExp2(0x000000, 0.005);
+
 // --- Controls ---
 let controls;
+let move = {forward:false, backward:false, left:false, right:false};
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+let pitch=0, yaw=0;
+let pointerLocked=false;
+
 if (/Mobi|Android/i.test(navigator.userAgent)) {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
-  controls.minDistance = 5;
-  controls.maxDistance = 50;
+  controls.minDistance = 10;
+  controls.maxDistance = 200;
   controls.maxPolarAngle = Math.PI/2;
+  document.getElementById('instructions').style.display='none';
 } else {
-  let pointerLocked = false;
-  let yaw=0, pitch=0;
-  let move={forward:false, backward:false, left:false, right:false};
-  let velocity = new THREE.Vector3();
-  let direction = new THREE.Vector3();
-
   document.getElementById('instructions').addEventListener('click', ()=>{
     document.body.requestPointerLock();
+    if(audio && !audio.isPlaying) audio.play();
   });
   document.addEventListener('pointerlockchange', ()=>{
     pointerLocked = document.pointerLockElement === document.body;
-    document.getElementById('instructions').style.display = pointerLocked ? 'none':'block';
+    document.getElementById('instructions').style.display = pointerLocked?'none':'block';
   });
   document.addEventListener('mousemove', e=>{
     if(!pointerLocked) return;
-    yaw -= e.movementX*0.002;
-    pitch -= e.movementY*0.002;
-    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+    yaw -= e.movementX * 0.002;
+    pitch -= e.movementY * 0.002;
+    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2,pitch));
     camera.rotation.set(pitch,yaw,0);
   });
   document.addEventListener('keydown', e=>{
@@ -90,80 +152,13 @@ if (/Mobi|Android/i.test(navigator.userAgent)) {
   });
 }
 
-// --- Floor ---
-const floorGeo = new THREE.PlaneGeometry(200,200);
-const floorMat = new THREE.MeshStandardMaterial({color:0x222222});
-const floor = new THREE.Mesh(floorGeo,floorMat);
-floor.rotation.x = -Math.PI/2;
-scene.add(floor);
-
-// --- Alien Glitch Terrain ---
-const terrainGeo = new THREE.PlaneGeometry(50,50,128,128);
-terrainGeo.rotateX(-Math.PI/2);
-
-const terrainMat = new THREE.ShaderMaterial({
-  uniforms:{
-    time:{value:0},
-    audioAmp:{value:0}
-  },
-  vertexShader:`
-    uniform float time;
-    uniform float audioAmp;
-    varying float vHeight;
-    void main(){
-      float freq = 0.1;
-      float amp = 2.0 + audioAmp*2.0;
-      float h = sin(position.x*freq + time) * cos(position.z*freq + time*0.9);
-      h += sin((position.x+position.z)*freq*1.5 - time*1.7);
-      h *= amp;
-      vHeight = h;
-      vec3 displaced = position + vec3(0.0,h,0.0);
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced,1.0);
-    }
-  `,
-  fragmentShader:`
-    varying float vHeight;
-    void main(){
-      float base = 0.2 + 0.4*fract(vHeight*0.1);
-      vec3 col = mix(vec3(base,0.1,0.3), vec3(1.0,0.2,0.5), smoothstep(1.5,3.0,vHeight));
-      gl_FragColor = vec4(col,1.0);
-    }
-  `,
-  side: THREE.DoubleSide,
-  transparent:false
-});
-
-const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
-scene.add(terrainMesh);
-
-// --- Audio ---
-const listener = new THREE.AudioListener();
-camera.add(listener);
-
-const audio = new THREE.Audio(listener);
-const audioLoader = new THREE.AudioLoader();
-const analyser = new THREE.AudioAnalyser(audio,32);
-
-audioLoader.load('./models/fghiiiaa.wav', buffer=>{
-  audio.setBuffer(buffer);
-  audio.setLoop(true);
-  audio.setVolume(0.6);
-  function startSound() {
-    if(!audio.isPlaying) audio.play();
-    document.removeEventListener('click', startSound);
-    document.removeEventListener('touchstart', startSound);
-  }
-  document.addEventListener('click', startSound, {passive:true});
-  document.addEventListener('touchstart', startSound, {passive:true});
-});
-
-// --- Load GLTF ---
+// --- Load GLB ---
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 
-let mixers = [];
+let mixers=[];
 
 loader.load('./models/rigid_astronaut.glb', gltf=>{
   const model = gltf.scene || gltf.scenes[0];
@@ -180,9 +175,15 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
     });
     mixers.push(mixer);
   }
+
   if(controls){
     controls.target.copy(model.position);
     controls.update();
+  } else {
+    const dx = model.position.x - camera.position.x;
+    const dz = model.position.z - camera.position.z;
+    yaw = Math.atan2(dx,dz);
+    camera.rotation.set(0,yaw,0);
   }
 });
 
@@ -194,10 +195,25 @@ function animate(){
 
   mixers.forEach(m=>m.update(delta));
 
-  // --- Terrain audio response ---
-  const data = analyser.getAverageFrequency()/64.0; // scale
-  terrainMat.uniforms.audioAmp.value = data;
-  terrainMat.uniforms.time.value += delta*2.0;
+  // --- Audio-reactive terrain ---
+  if(analyser) terrainMat.uniforms.audioAmp.value = analyser.getAverageFrequency()/32.0;
+
+  // --- WASD movement ---
+  velocity.x -= velocity.x*10.0*delta;
+  velocity.z -= velocity.z*10.0*delta;
+  direction.z = Number(move.forward)-Number(move.backward);
+  direction.x = Number(move.right)-Number(move.left);
+  direction.normalize();
+  if(move.forward||move.backward) velocity.z -= direction.z*50.0*delta;
+  if(move.left||move.right) velocity.x -= direction.x*50.0*delta;
+  const forward = new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
+  const right = new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
+  camera.position.addScaledVector(forward, velocity.z*delta);
+  camera.position.addScaledVector(right, velocity.x*delta);
+
+  if(controls) controls.update();
+
+  terrainMat.uniforms.time.value += delta;
 
   renderer.render(scene,camera);
 }
