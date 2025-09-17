@@ -146,6 +146,7 @@ const waveMat = new THREE.ShaderMaterial({
 });
 
 const waveMesh = new THREE.Mesh(waveGeo, waveMat);
+waveMesh.position.y = -0.8; // lower the waves slightly
 scene.add(waveMesh);
 
 // --- Animate ---
