@@ -38,10 +38,29 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // --- Lights ---
-scene.add(new THREE.AmbientLight(0xffffff, 2));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-dirLight.position.set(10,20,10);
+//scene.add(new THREE.AmbientLight(0xffffff, 2));
+//const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+//dirLight.position.set(10,20,10);
+//scene.add(dirLight);
+
+<!-- replace your old lights with this -->
+// --- Lights ---
+const ambient = new THREE.AmbientLight(0x404040, 0.6);
+scene.add(ambient);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+dirLight.position.set(10, 20, 15);
+dirLight.castShadow = true;
 scene.add(dirLight);
+
+const fillLight = new THREE.PointLight(0x7722ff, 1.0, 50);
+fillLight.position.set(0, 3, 0);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0x88ccff, 1.0);
+rimLight.position.set(-10, 5, -10);
+scene.add(rimLight);
+
 
 // --- Floor ---
 const floorGeo = new THREE.PlaneGeometry(200,200);
