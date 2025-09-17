@@ -194,18 +194,36 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 
-const mixers = [];
+let mixer = null;
 
 loader.load('./models/rigid_astronaut.glb', gltf => {
-    gltf.scene.traverse(child => {
-        if (child.isMesh) scene.add(child);
-    });
+  console.log('GLTF loaded', gltf);
+  const model = gltf.scene || gltf.scenes[0];
+  model.position.set(0,1,0);
+  model.scale.set(2,2,2);
+  model.position.y = 4;
+  scene.add(model);
 
-    if (gltf.animations.length > 0) {
-        const mixer = new THREE.AnimationMixer(gltf.scene);
-        gltf.animations.forEach(clip => mixer.clipAction(clip).play());
-        mixers.push(mixer);
-    }
+  if (gltf.animations && gltf.animations.length > 0) {
+  mixer = new THREE.AnimationMixer(model);
+  const action = mixer.clipAction(gltf.animations[0]); // merged "Animation"
+  action.play();
+  console.log('Playing merged animation:', gltf.animations[0].name);
+} else {
+  console.log('No animations in GLTF');
+}
+
+
+
+  if (controls) {
+    controls.target.copy(model.position);
+    controls.update();
+  } else {
+    const dx = model.position.x - camera.position.x;
+    const dz = model.position.z - camera.position.z;
+    yaw = Math.atan2(dx, dz);
+    camera.rotation.set(0, yaw, 0);
+  }
 
 
 
@@ -229,46 +247,36 @@ loader.load('./models/rigid_astronaut.glb', gltf => {
 }, xhr=>console.log((xhr.loaded/xhr.total*100)+'% loaded'), err=>console.error(err));
 
 // --- Animate ---
-// --- Animate (replace your current animate function with this) ---
 const clock = new THREE.Clock();
-
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
 
-  // update all animation mixers (one per loaded model/GLTF)
-  if (mixers && mixers.length) {
-    mixers.forEach(m => m.update(delta));
-  }
+  if (mixer) mixer.update(delta);
 
-  // your existing movement / controls code
-  velocity.x -= velocity.x * 10.0 * delta;
-  velocity.z -= velocity.z * 10.0 * delta;
+  velocity.x -= velocity.x*10.0*delta;
+  velocity.z -= velocity.z*10.0*delta;
   direction.z = Number(move.forward) - Number(move.backward);
   direction.x = Number(move.right) - Number(move.left);
   direction.normalize();
-  if (move.forward || move.backward) velocity.z -= direction.z * 50.0 * delta;
-  if (move.left || move.right) velocity.x -= direction.x * 50.0 * delta;
+  if (move.forward||move.backward) velocity.z -= direction.z*50.0*delta;
+  if (move.left||move.right) velocity.x -= direction.x*50.0*delta;
+  const forward = new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
+  const right = new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
+  camera.position.addScaledVector(forward, velocity.z*delta);
+  camera.position.addScaledVector(right, velocity.x*delta);
 
-  const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
-  const right = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
-  camera.position.addScaledVector(forward, velocity.z * delta);
-  camera.position.addScaledVector(right, velocity.x * delta);
+  if (controls) controls.update();
 
-  if (controls && controls.update) controls.update();
-
-  // shader updates
   updateGlitchTerrain(delta);
   glitchMat.uniforms.time.value += delta;
   bgMat.uniforms.time.value += delta;
 
-  // render background then scene
   renderer.render(bgScene, bgCamera);
   renderer.clearDepth();
   renderer.render(scene, camera);
 }
 animate();
-
 
 // --- Resize ---
 window.addEventListener('resize', ()=>{
