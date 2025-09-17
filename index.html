@@ -73,17 +73,24 @@ scene.add(floor);
 const glitchGeo = new THREE.PlaneGeometry(300, 300, 256, 256);
 glitchGeo.rotateX(-Math.PI / 2);
 
+<!-- replace your glitchMat shaderMaterial with this -->
 const glitchMat = new THREE.ShaderMaterial({
   uniforms: { time: { value: 0.0 } },
   vertexShader: `
     uniform float time;
     varying float vHeight;
+
+    float wave(vec2 pos, float freq, float speed, float amp) {
+      return sin(pos.x * freq + time * speed) *
+             cos(pos.y * freq + time * speed) * amp;
+    }
+
     void main() {
-      float freq = 0.08;
-      float amp = 12.0;
-      float h = sin(position.x * freq + time*1.0) * cos(position.z * freq*0.9 + time*1.0);
-      h += sin((position.x+position.z) * freq*1.5 - time*1.7);
-      h *= amp;
+      float h = 0.0;
+      h += wave(position.xz, 0.08, 1.0, 3.0);
+      h += wave(position.xz, 0.16, 1.4, 2.0);
+      h += wave(position.xz, 0.32, 0.7, 1.0);
+
       vHeight = h;
       vec3 displaced = position + vec3(0.0, h * 0.1, 0.0);
       gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
@@ -92,18 +99,23 @@ const glitchMat = new THREE.ShaderMaterial({
   fragmentShader: `
     uniform float time;
     varying float vHeight;
+
     void main() {
-      float baseGrey = 0.1 + 0.5 * fract(vHeight * 0.05);
-      vec3 base = vec3(baseGrey);
-      vec3 peakColor = vec3(0.3, 0.1, 0.4);
-      float peakFactor = smoothstep(2.0, 12.0, vHeight);
-      vec3 color = mix(base, peakColor, peakFactor);
-      float n = fract(sin(vHeight*12.9898 + time*10.0) * 43758.5453);
-      float glitch = step(0.98, n);
-      color = mix(color, vec3(1.0,0.1,0.5), glitch);
-      gl_FragColor = vec4(color, 0.8);
+      // base color
+      vec3 base = vec3(0.05, 0.05, 0.1);
+
+      // highlight color for peaks
+      vec3 peakColor = vec3(0.8, 0.2, 1.0);
+
+      // fresnel-like factor to make ridges glow
+      float fresnel = pow(1.0 - abs(normalize(vec3(vHeight,1.0,0.0)).y), 3.0);
+
+      vec3 color = mix(base, peakColor, fresnel);
+
+      gl_FragColor = vec4(color, 0.9);
     }
-  `
+  `,
+  transparent: true
 });
 const glitchMesh = new THREE.Mesh(glitchGeo, glitchMat);
 scene.add(glitchMesh);
