@@ -73,7 +73,6 @@ scene.add(floor);
 const glitchGeo = new THREE.PlaneGeometry(300, 300, 256, 256);
 glitchGeo.rotateX(-Math.PI / 2);
 
-<!-- replace your glitchMat shaderMaterial with this -->
 const glitchMat = new THREE.ShaderMaterial({
   uniforms: { time: { value: 0.0 } },
   vertexShader: `
