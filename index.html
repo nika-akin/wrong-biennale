@@ -158,10 +158,9 @@ if (/Mobi|Android/i.test(navigator.userAgent)) {
 } else {
   document.getElementById('instructions').addEventListener('click', () => {
     document.body.requestPointerLock();
- // Start sound here
     if (sound && !sound.isPlaying) {
-    sound.play();
-}
+      sound.play();
+    }
   });
   document.addEventListener('pointerlockchange', () => {
     pointerLocked = document.pointerLockElement === document.body;
@@ -196,22 +195,28 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixers = [];
 
+loader.load('./models/rigid_astronaut.glb', gltf => {
+  console.log('GLTF loaded', gltf);
+  const model = gltf.scene || gltf.scenes[0];
+  model.position.set(0,1,0);
+  model.scale.set(2,2,2);
+  model.position.y = 4;
+  scene.add(model);
 
-if (gltf.animations && gltf.animations.length > 0) {
-  const localMixer = new THREE.AnimationMixer(model);
-  gltf.animations.forEach(clip => {
-    const action = localMixer.clipAction(clip);
-    action.play();
-    console.log('Playing animation:', clip.name);
-  });
-  mixers.push(localMixer);
-} else {
-  console.log('No animations in GLTF');
-}
+  // --- Animations ---
+  if (gltf.animations && gltf.animations.length > 0) {
+    const localMixer = new THREE.AnimationMixer(model);
+    gltf.animations.forEach(clip => {
+      const action = localMixer.clipAction(clip);
+      action.play();
+      console.log('Playing animation:', clip.name);
+    });
+    mixers.push(localMixer);
+  } else {
+    console.log('No animations in GLTF');
+  }
 
-
-
-
+  // --- Camera controls ---
   if (controls) {
     controls.target.copy(model.position);
     controls.update();
@@ -221,8 +226,6 @@ if (gltf.animations && gltf.animations.length > 0) {
     yaw = Math.atan2(dx, dz);
     camera.rotation.set(0, yaw, 0);
   }
-
-
 
   // --- Audio ---
   const listener = new THREE.AudioListener();
@@ -250,9 +253,8 @@ function animate() {
   const delta = clock.getDelta();
 
   if (mixers.length > 0) {
-  mixers.forEach(m => m.update(delta));
-}
-
+    mixers.forEach(m => m.update(delta));
+  }
 
   velocity.x -= velocity.x*10.0*delta;
   velocity.z -= velocity.z*10.0*delta;
