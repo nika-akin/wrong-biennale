@@ -15,6 +15,7 @@
     font-family: sans-serif;
     font-size: 24px;
     user-select: none;
+    cursor: pointer;
   }
 </style>
 </head>
@@ -65,17 +66,22 @@ if(isMobile){
     orbitControls.screenSpacePanning = true;
 } else {
     controls = new PointerLockControls(camera, renderer.domElement);
+    scene.add(controls.getObject());
 
     if (instructions) {
         instructions.addEventListener('click', ()=>{
             controls.lock();
             startAudio();
-            instructions.style.display = 'none';
         });
 
-        document.addEventListener('pointerlockchange', () => {
-            pointerLocked = document.pointerLockElement === document.body;
-            instructions.style.display = pointerLocked ? 'none' : 'block';
+        controls.addEventListener('lock', () => {
+            instructions.style.display = 'none';
+            pointerLocked = true;
+        });
+
+        controls.addEventListener('unlock', () => {
+            instructions.style.display = 'block';
+            pointerLocked = false;
         });
     }
 
@@ -200,12 +206,14 @@ function animate(){
         const right = new THREE.Vector3();
         right.crossVectors(camera.up, forward).normalize().negate();
 
-        if(move.forward) camera.position.addScaledVector(forward, speed);
-        if(move.backward) camera.position.addScaledVector(forward, -speed);
-        if(move.left) camera.position.addScaledVector(right, -speed);
-        if(move.right) camera.position.addScaledVector(right, speed);
-        if(move.up) camera.position.y += speed;
-        if(move.down) camera.position.y -= speed;
+        const obj = controls.getObject();
+
+        if(move.forward) obj.position.addScaledVector(forward, speed);
+        if(move.backward) obj.position.addScaledVector(forward, -speed);
+        if(move.left) obj.position.addScaledVector(right, -speed);
+        if(move.right) obj.position.addScaledVector(right, speed);
+        if(move.up) obj.position.y += speed;
+        if(move.down) obj.position.y -= speed;
     }
 
     // --- Audio reactive wave ---
