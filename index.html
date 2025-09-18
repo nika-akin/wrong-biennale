@@ -1,3 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Berlinale Alien Walk</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+  #instructions {
+    position: absolute;
+    top: 40%;
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-family: sans-serif;
+    font-size: 24px;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+<div id="instructions">Click to start FPS controls</div>
+
 <script type="module">
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
@@ -27,8 +50,11 @@ let pointerLocked = false;
 let controls, orbitControls;
 
 const move = {forward:false, backward:false, left:false, right:false, up:false, down:false};
+const instructions = document.getElementById('instructions');
 
 if(isMobile){
+    if (instructions) instructions.style.display = 'none';
+
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
     orbitControls.dampingFactor = 0.05;
@@ -37,19 +63,21 @@ if(isMobile){
     orbitControls.maxPolarAngle = Math.PI/2;
     orbitControls.enablePan = true;
     orbitControls.screenSpacePanning = true;
-    document.getElementById('instructions').style.display = 'none';
 } else {
     controls = new PointerLockControls(camera, renderer.domElement);
-    document.getElementById('instructions').addEventListener('click', ()=>{
-        controls.lock();
-        startAudio();
-        document.getElementById('instructions').style.display = 'none';
-    });
 
-    document.addEventListener('pointerlockchange', () => {
-        pointerLocked = document.pointerLockElement === document.body;
-        document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
-    });
+    if (instructions) {
+        instructions.addEventListener('click', ()=>{
+            controls.lock();
+            startAudio();
+            instructions.style.display = 'none';
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            pointerLocked = document.pointerLockElement === document.body;
+            instructions.style.display = pointerLocked ? 'none' : 'block';
+        });
+    }
 
     document.addEventListener('keydown', e=>{
         if(e.code==='KeyW') move.forward=true;
@@ -200,4 +228,5 @@ window.addEventListener('resize', ()=>{
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
-
+</body>
+</html>
