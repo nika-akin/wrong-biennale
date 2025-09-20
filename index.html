@@ -117,7 +117,7 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
     const model = gltf.scene || gltf.scenes[0];
     model.scale.set(2,2,2);
 
-    // Force simpler material on mobile (debug)
+    // Debug: simpler material on mobile
     if (isMobile) {
         model.traverse(obj => {
             if (obj.isMesh) {
@@ -128,23 +128,21 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
 
     scene.add(model);
 
-    // --- bounding box & sphere ---
+    // --- bounding box for centering ---
     const box = new THREE.Box3().setFromObject(model);
-    const sphere = new THREE.Sphere();
-    box.getBoundingSphere(sphere);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
 
     // lift astronaut above waves
     model.position.y = -box.min.y + 5;
 
     // --- Mobile camera setup ---
     if (isMobile && orbitControls) {
-        const distance = sphere.radius * 3;
-        camera.position.set(
-            sphere.center.x,
-            sphere.center.y + sphere.radius,
-            sphere.center.z + distance
-        );
-        orbitControls.target.copy(sphere.center);
+        // Keep same position as desktop
+        camera.position.set(0, 5, 10);
+
+        // Just look at astronaut
+        orbitControls.target.copy(center);
         orbitControls.update();
     }
 
@@ -155,6 +153,8 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
         mixers.push(mixer);
     }
 });
+
+
 // --- Audio & analyser ---
 const listener = new THREE.AudioListener();
 camera.add(listener);
