@@ -2,40 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Berlinale Alien Walk — Quantum Scene</title>
+<title>Berlinale Alien Walk — Quantum Scene with Mirror</title>
 <style>
   body { margin:0; overflow:hidden; background:black; }
   canvas { display:block; }
   #instructions {
-    position:absolute;
-    top:40%;
-    width:100%;
-    text-align:center;
-    color:white;
-    font-family:sans-serif;
-    font-size:24px;
-    user-select:none;
-    cursor:pointer;
+    position:absolute; top:40%; width:100%; text-align:center;
+    color:white; font-family:sans-serif; font-size:24px;
+    user-select:none; cursor:pointer;
   }
   #ui{
-    position:absolute;
-    left:12px;
-    top:12px;
-    display:flex;
-    gap:6px;
-    align-items:center;
-    z-index:10;
+    position:absolute; left:12px; top:12px;
+    display:flex; gap:6px; align-items:center; z-index:10;
     font-family:sans-serif;
   }
   .btn{
-    background: rgba(255,255,255,0.08);
-    color:#fff;
-    border:1px solid rgba(255,255,255,0.12);
-    padding:6px 10px;
-    border-radius:6px;
-    cursor:pointer;
-    user-select:none;
-    font-size:14px;
+    background: rgba(255,255,255,0.08); color:#fff;
+    border:1px solid rgba(255,255,255,0.12); padding:6px 10px;
+    border-radius:6px; cursor:pointer; user-select:none; font-size:14px;
   }
   .btn:active{ transform:translateY(1px); }
   .label{ color:#ddd; font-size:14px; margin-left:8px; }
@@ -60,6 +44,7 @@ import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GL
 import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
 import { PointerLockControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { Reflector } from 'https://esm.sh/three@0.160.0/examples/jsm/objects/Reflector.js';
 
 // ---------------- Scene ----------------
 const scene = new THREE.Scene();
@@ -86,21 +71,16 @@ const instructions=document.getElementById('instructions');
 if(isMobile){
     if(instructions) instructions.style.display='none';
     orbitControls=new OrbitControls(camera,renderer.domElement);
-    orbitControls.enableDamping=true;
-    orbitControls.dampingFactor=0.05;
-    orbitControls.minDistance=5;
-    orbitControls.maxDistance=100;
-    orbitControls.minPolarAngle=0;
-    orbitControls.maxPolarAngle=Math.PI/2;
-    orbitControls.enablePan=true;
-    orbitControls.screenSpacePanning=true;
+    orbitControls.enableDamping=true; orbitControls.dampingFactor=0.05;
+    orbitControls.minDistance=5; orbitControls.maxDistance=100;
+    orbitControls.minPolarAngle=0; orbitControls.maxPolarAngle=Math.PI/2;
+    orbitControls.enablePan=true; orbitControls.screenSpacePanning=true;
 }else{
     controls=new PointerLockControls(camera,renderer.domElement);
     scene.add(controls.getObject());
     if(instructions){
         instructions.addEventListener('click',()=>{
-            controls.lock();
-            startAudio();
+            controls.lock(); startAudio();
         });
         controls.addEventListener('lock',()=>{ instructions.style.display='none'; pointerLocked=true; });
         controls.addEventListener('unlock',()=>{ instructions.style.display='block'; pointerLocked=false; });
@@ -131,17 +111,14 @@ loader.setDRACOLoader(dracoLoader);
 let mixers=[];
 loader.load('./models/rigid_astronaut.glb',gltf=>{
     const model=gltf.scene||gltf.scenes[0];
-    model.scale.set(2,2,2);
-    scene.add(model);
+    model.scale.set(2,2,2); scene.add(model);
     const box=new THREE.Box3().setFromObject(model);
-    const center=new THREE.Vector3();
-    box.getCenter(center);
+    const center=new THREE.Vector3(); box.getCenter(center);
     model.position.y=-box.min.y+5;
     if(isMobile&&orbitControls){ camera.position.set(0,5,10); orbitControls.target.copy(center); orbitControls.update(); }
     if(gltf.animations&&gltf.animations.length>0){
         const mixer=new THREE.AnimationMixer(model);
-        gltf.animations.forEach(clip=>mixer.clipAction(clip).play());
-        mixers.push(mixer);
+        gltf.animations.forEach(clip=>mixer.clipAction(clip).play()); mixers.push(mixer);
     }
 });
 
@@ -151,10 +128,7 @@ const sound=new THREE.Audio(listener); let analyser;
 function startAudio(){
     const audioLoader=new THREE.AudioLoader();
     audioLoader.load('./models/fghiiiaa.wav',buffer=>{
-        sound.setBuffer(buffer);
-        sound.setLoop(true);
-        sound.setVolume(0.6);
-        sound.play();
+        sound.setBuffer(buffer); sound.setLoop(true); sound.setVolume(0.6); sound.play();
         analyser=new THREE.AudioAnalyser(sound,128);
     });
 }
@@ -170,14 +144,23 @@ const waveMat=new THREE.ShaderMaterial({
 });
 scene.add(new THREE.Mesh(waveGeo,waveMat));
 
+// ---------------- Round Mirror ----------------
+const mirrorRadius=50;
+const mirrorGeo=new THREE.CircleGeometry(mirrorRadius,64);
+const mirror=new Reflector(mirrorGeo,{
+    clipBias:0.003,
+    textureWidth:window.innerWidth*window.devicePixelRatio,
+    textureHeight:window.innerHeight*window.devicePixelRatio,
+    color:0x777777,
+});
+mirror.rotateX(-Math.PI/2);
+mirror.position.y=0;
+scene.add(mirror);
+
 // ---------------- Electron Cloud ----------------
 let particleCount=10000, minParticles=2000, maxParticles=20000;
 let electronGeo=null, electronCloud=null, basePositions=null;
-const electronMat=new THREE.PointsMaterial({
-    size:isMobile?0.06:0.05, transparent:true, opacity:0.4,
-    depthWrite:false, blending:THREE.AdditiveBlending,
-    map:createCircleTexture(), alphaTest:0.01
-});
+let electronMat=createFuzzyElectronMaterial();
 let currentOrbital='s';
 const sBtn=document.getElementById('sBtn'), pxBtn=document.getElementById('pxBtn'),
       pyBtn=document.getElementById('pyBtn'), pzBtn=document.getElementById('pzBtn'),
@@ -203,6 +186,19 @@ function createCircleTexture(){
     return new THREE.CanvasTexture(canvas);
 }
 
+function createFuzzyElectronMaterial(){
+    return new THREE.ShaderMaterial({
+        uniforms: { pointTexture:{value:createCircleTexture()}, time:{value:0}, audioAmp:{value:0} },
+        vertexShader:`uniform float time; uniform float audioAmp; attribute float phase; varying float vOpacity;
+        void main(){ vec3 pos=position; float scale=1.0+audioAmp*0.3+0.05*sin(time+phase); pos*=scale;
+        vOpacity=0.4+0.2*sin(time+phase); gl_PointSize=${isMobile?10.0:8.0};
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0); }`,
+        fragmentShader:`uniform sampler2D pointTexture; varying float vOpacity;
+        void main(){ vec4 tex=texture2D(pointTexture,gl_PointCoord); gl_FragColor=vec4(vec3(1.0),vOpacity*tex.a); }`,
+        transparent:true, depthWrite:false, blending:THREE.AdditiveBlending
+    });
+}
+
 function generatePositions(type,count){
     const arr=new Float32Array(count*3); let idx=0;
     for(let i=0;i<count;i++){
@@ -225,8 +221,8 @@ function regenerateOrbital(){
     const positions=generatePositions(currentOrbital,particleCount);
     basePositions=positions.slice();
     electronGeo=new THREE.BufferGeometry();
-    electronGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
-    electronGeo.setAttribute('phase', new THREE.BufferAttribute(new Float32Array(particleCount).map(()=>Math.random()*Math.PI*2),1));
+    electronGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));
+    electronGeo.setAttribute('phase',new THREE.BufferAttribute(new Float32Array(particleCount).map(()=>Math.random()*Math.PI*2),1));
     electronCloud=new THREE.Points(electronGeo,electronMat);
     electronCloud.position.set(0,6,0);
     scene.add(electronCloud);
@@ -253,7 +249,6 @@ function animate(){
         if(move.down) obj.position.y-=speed;
     }
 
-    // waves
     if(analyser) waveMat.uniforms.audioAmp.value=analyser.getAverageFrequency()/256;
     waveMat.uniforms.time.value+=delta;
 
@@ -266,7 +261,8 @@ function animate(){
             for(let i=0;i<data.length;i++){ weightedSum+=i*data[i]; sum+=data[i]; }
             if(sum>0){ freqShift=0.5+weightedSum/sum/data.length; }
         }
-        electronMat.opacity=0.25+0.2*Math.sin(clock.elapsedTime*2.0*freqShift);
+        electronMat.uniforms.time.value = clock.elapsedTime;
+        electronMat.uniforms.audioAmp.value = analyser? analyser.getAverageFrequency()/128.0 : 0;
         const posAttr=electronGeo.getAttribute('position');
         const phaseAttr=electronGeo.getAttribute('phase');
         for(let i=0;i<posAttr.count;i++){
