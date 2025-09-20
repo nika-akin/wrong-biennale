@@ -1,8 +1,7 @@
-https://nika-akin.github.io/wrong-biennale/
 
-# Wrong Biennale Submission: Quantum Landscapes
+# Wrong Biennale Submission: [Quantum Landscapes](https://nika-akin.github.io/wrong-biennale/)
 
-![Header Image Placeholder](./screenshot.png)
+![Header Image Placeholder](./ab.png)
 
 **Quantum Landscapes** is an interactive 3D experience exploring the ambiguity of knowledge and measurement through the metaphor of quantum orbitals.
 
@@ -50,7 +49,6 @@ The combination of these techniques transforms real-world satellite data into a 
 - **Shaders**: Custom shaders for:
   - Electron clouds
   - Wave surfaces
-  - Reflective mirrors
 - **Interactive Orbitals**: Electron positions are generated procedurally based on s, p, d orbital shapes.
 
 ---
