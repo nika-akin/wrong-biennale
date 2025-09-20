@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Berlinale Alien Walk</title>
+<title>Berlinale Alien Walk — Quantum Scene</title>
 <style>
   body { margin: 0; overflow: hidden; background: black; }
   canvas { display: block; }
@@ -17,10 +17,47 @@
     user-select: none;
     cursor: pointer;
   }
+  /* Simple UI for orbital controls */
+  #ui {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    z-index: 10;
+    font-family: sans-serif;
+  }
+  .btn {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 14px;
+  }
+  .btn:active { transform: translateY(1px); }
+  .label {
+    color: #ddd;
+    font-size: 14px;
+    margin-left: 8px;
+  }
 </style>
 </head>
 <body>
 <div id="instructions">Click to start FPS controls</div>
+
+<!-- Orbital UI -->
+<div id="ui">
+  <button id="sBtn" class="btn">S</button>
+  <button id="pBtn" class="btn">P</button>
+  <button id="dBtn" class="btn">D</button>
+  <button id="decBtn" class="btn">–</button>
+  <button id="incBtn" class="btn">+</button>
+  <div class="label" id="countLabel">particles: 10000</div>
+</div>
 
 <script type="module">
 import * as THREE from 'https://esm.sh/three@0.160.0';
@@ -29,23 +66,24 @@ import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/D
 import { PointerLockControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
-// --- Scene & Renderer ---
+// ---------------- Scene & Renderer ----------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.01, 2000);
 camera.position.set(0,5,10);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 document.body.appendChild(renderer.domElement);
 
-// --- Lights ---
+// ---------------- Lights ----------------
 scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
 dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
-// --- Controls ---
+// ---------------- Controls ----------------
 const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 let pointerLocked = false;
 let controls, orbitControls;
@@ -104,7 +142,7 @@ if(isMobile){
     });
 }
 
-// --- Load GLTF Alien ---
+// ---------------- Load GLTF Alien (unchanged) ----------------
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
@@ -112,41 +150,37 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixers = [];
 loader.load('./models/rigid_astronaut.glb', gltf=>{
-    console.log("Model loaded:", gltf);
-
+    console.log('Model loaded', gltf);
     const model = gltf.scene || gltf.scenes[0];
     model.scale.set(2,2,2);
 
-    // Debug: simpler material on mobile
+    // keep PBR on desktop, simple on mobile to avoid shader issues
     if (isMobile) {
         model.traverse(obj => {
             if (obj.isMesh) {
-                obj.material = new THREE.MeshStandardMaterial({ color: 0xffeeee });
+                obj.material = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.1, roughness: 0.8 });
             }
         });
     }
 
     scene.add(model);
 
-    // --- bounding box for centering ---
+    // bounding box + center
     const box = new THREE.Box3().setFromObject(model);
     const center = new THREE.Vector3();
     box.getCenter(center);
 
-    // lift astronaut above waves
+    // lift model above the waves so it's not clipped
     model.position.y = -box.min.y + 5;
 
-    // --- Mobile camera setup ---
+    // On mobile keep camera start consistent but target toward model center
     if (isMobile && orbitControls) {
-        // Keep same position as desktop
-        camera.position.set(0, 5, 10);
-
-        // Just look at astronaut
+        camera.position.set(0,5,10);
         orbitControls.target.copy(center);
         orbitControls.update();
     }
 
-    // --- animations ---
+    // animations
     if (gltf.animations && gltf.animations.length > 0) {
         const mixer = new THREE.AnimationMixer(model);
         gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
@@ -154,8 +188,7 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
     }
 });
 
-
-// --- Audio & analyser ---
+// ---------------- Audio & analyser (unchanged) ----------------
 const listener = new THREE.AudioListener();
 camera.add(listener);
 const sound = new THREE.Audio(listener);
@@ -172,7 +205,7 @@ function startAudio(){
     });
 }
 
-// --- Wave Plane ---
+// ---------------- Wave Plane (unchanged) ----------------
 const waveSize = 200;
 const waveSegments = 128;
 const waveGeo = new THREE.PlaneGeometry(waveSize, waveSize, waveSegments, waveSegments);
@@ -211,7 +244,135 @@ const waveMat = new THREE.ShaderMaterial({
 const waveMesh = new THREE.Mesh(waveGeo, waveMat);
 scene.add(waveMesh);
 
-// --- Animate ---
+// ---------------- Electron Cloud (configurable orbitals) ----------------
+
+// default particle count
+let particleCount = 10000;
+const minParticles = 2000;
+const maxParticles = 20000;
+
+// container variables for points
+let electronGeo = null;
+const electronMat = new THREE.PointsMaterial({
+    color: 0x00ffff,
+    size: isMobile ? 0.06 : 0.05,
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+});
+let electronCloud = null;
+
+// current orbital type
+let currentOrbital = 's'; // 's' | 'p' | 'd'
+
+// UI elements
+const sBtn = document.getElementById('sBtn');
+const pBtn = document.getElementById('pBtn');
+const dBtn = document.getElementById('dBtn');
+const incBtn = document.getElementById('incBtn');
+const decBtn = document.getElementById('decBtn');
+const countLabel = document.getElementById('countLabel');
+
+sBtn.addEventListener('click', ()=>{ currentOrbital='s'; regenerateOrbital(); });
+pBtn.addEventListener('click', ()=>{ currentOrbital='p'; regenerateOrbital(); });
+dBtn.addEventListener('click', ()=>{ currentOrbital='d'; regenerateOrbital(); });
+incBtn.addEventListener('click', ()=>{ particleCount = Math.min(maxParticles, particleCount + 2000); updateCountLabel(); regenerateOrbital(); });
+decBtn.addEventListener('click', ()=>{ particleCount = Math.max(minParticles, particleCount - 2000); updateCountLabel(); regenerateOrbital(); });
+function updateCountLabel(){ countLabel.textContent = `particles: ${particleCount.toLocaleString()}`; }
+updateCountLabel();
+
+// helper: generate positions for orbital types
+function generatePositions(type, count){
+    const posArr = new Float32Array(count * 3);
+    let idx = 0;
+
+    if (type === 's') {
+        // spherical distribution (radial falloff)
+        for (let i=0; i<count; i++){
+            const r = Math.cbrt(Math.random()) * 6.0; // radius
+            const theta = Math.acos(1 - 2 * Math.random());
+            const phi = Math.random() * Math.PI * 2;
+
+            const x = r * Math.sin(theta) * Math.cos(phi);
+            const y = r * Math.sin(theta) * Math.sin(phi);
+            const z = r * Math.cos(theta);
+
+            posArr[idx++] = x;
+            posArr[idx++] = y;
+            posArr[idx++] = z;
+        }
+    } else if (type === 'p') {
+        // two lobes along X axis (approximate p-orbital)
+        for (let i=0; i<count; i++){
+            // choose lobe negative or positive
+            const sign = Math.random() < 0.5 ? -1 : 1;
+            // radius biased closer to center
+            const r = Math.cbrt(Math.random()) * 5.0;
+            const theta = Math.acos(1 - 2 * Math.random());
+            const phi = Math.random() * Math.PI * 2;
+
+            // generate sphere point then push along x by sign*offset
+            const x = sign * (Math.abs(Math.cos(theta)) * r + 1.0);
+            const y = r * Math.sin(theta) * Math.sin(phi) * 0.6;
+            const z = r * Math.sin(theta) * Math.cos(phi) * 0.6;
+
+            posArr[idx++] = x;
+            posArr[idx++] = y;
+            posArr[idx++] = z;
+        }
+    } else if (type === 'd') {
+        // approximate d-orbital (4-lobe clover) around XZ plane
+        for (let i=0; i<count; i++){
+            // pick one of 4 lobes
+            const lobe = Math.floor(Math.random()*4);
+            const baseAngle = (Math.PI/2) * lobe;
+            const r = Math.cbrt(Math.random()) * 5.5;
+            const spread = 0.6 + Math.random()*0.8;
+
+            const x = Math.cos(baseAngle) * (r * spread) + (Math.random()-0.5)*0.8;
+            const y = (Math.random()-0.5) * r * 0.6;
+            const z = Math.sin(baseAngle) * (r * spread) + (Math.random()-0.5)*0.8;
+
+            posArr[idx++] = x;
+            posArr[idx++] = y;
+            posArr[idx++] = z;
+        }
+    }
+
+    return posArr;
+}
+
+// create or update the Points object
+function regenerateOrbital(){
+    // remove old cloud
+    if (electronCloud){
+        scene.remove(electronCloud);
+        electronGeo.dispose();
+        electronGeo = null;
+        electronCloud = null;
+    }
+
+    // generate positions
+    const positions = generatePositions(currentOrbital, particleCount);
+    electronGeo = new THREE.BufferGeometry();
+    electronGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    // optionally add a small random attribute for per-particle phase (used for subtle motion)
+    const phases = new Float32Array(particleCount);
+    for (let i=0;i<particleCount;i++) phases[i] = Math.random() * Math.PI * 2;
+    electronGeo.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
+
+    electronCloud = new THREE.Points(electronGeo, electronMat);
+    // place the electron cloud near the scene center (slightly above waves)
+    electronCloud.position.set(0, 6, 0);
+    scene.add(electronCloud);
+}
+
+// create initial orbital cloud
+regenerateOrbital();
+
+// ---------------- Animation ----------------
 const clock = new THREE.Clock();
 function animate(){
     requestAnimationFrame(animate);
@@ -219,7 +380,7 @@ function animate(){
 
     mixers.forEach(m=>m.update(delta));
 
-    // --- Desktop FPS Movement ---
+    // Desktop FPS movement
     if(!isMobile && pointerLocked){
         const speed = 20 * delta;
 
@@ -241,25 +402,58 @@ function animate(){
         if(move.down) obj.position.y -= speed;
     }
 
-    // --- Audio reactive wave ---
+    // animate wave audio
     if(analyser){
         const avg = analyser.getAverageFrequency()/256;
         waveMat.uniforms.audioAmp.value = avg;
     }
-
     waveMat.uniforms.time.value += delta;
+
+    // animate electron cloud shimmer and slight breathing + rotation
+    if (electronCloud && electronGeo){
+        electronMat.opacity = 0.28 + 0.16 * Math.sin(clock.elapsedTime * 1.8);
+
+        // small per-particle radial jitter using CPU (cheap)
+        const posAttr = electronGeo.getAttribute('position');
+        const phaseAttr = electronGeo.getAttribute('phase');
+        const basePositions = posAttr.array; // current positions
+        // subtle time-based expansion/contraction (non-destructive)
+        const t = clock.elapsedTime * 0.3;
+        for (let i=0; i<posAttr.count; i++){
+            const pi = i*3;
+            const ph = phaseAttr.getX(i);
+            // original radius stored implicitly; we apply a tiny sinusoidal scale
+            const ox = basePositions[pi];
+            const oy = basePositions[pi+1];
+            const oz = basePositions[pi+2];
+            const s = 1 + 0.02 * Math.sin(t + ph);
+            basePositions[pi]   = ox * s;
+            basePositions[pi+1] = oy * s;
+            basePositions[pi+2] = oz * s;
+        }
+        posAttr.needsUpdate = true;
+
+        // slow rotation of the whole cloud
+        electronCloud.rotation.y += (isMobile ? 0.001 : 0.002);
+    }
 
     if(orbitControls) orbitControls.update();
     renderer.render(scene,camera);
 }
 animate();
 
-// --- Resize ---
+// ---------------- Resize ----------------
 window.addEventListener('resize', ()=>{
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ---------------- Helpful notes ----------------
+// - To change lobe axis for p-orbital you can rotate electronCloud after creation.
+// - For heavier visual effects (shader-based density, soft edges) you could replace PointsMaterial with a custom shader material - but that increases GPU cost on mobile.
+// - If you get jitter/lag on mobile, reduce particleCount (use the – button).
+
 </script>
 </body>
 </html>
