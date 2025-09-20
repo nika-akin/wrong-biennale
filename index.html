@@ -1,16 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Berlinale Alien Walk — Mobile Debug Build</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<meta charset="UTF-8">
+<title>Berlinale Alien Walk — Quantum Scene</title>
 <style>
-  body { margin:0; overflow:hidden; background:#000; }
-  canvas { display:block; position:fixed; top:0; left:0; z-index:0; }
-  #instructions { position:absolute; top:40%; width:100%; text-align:center; color:#fff; font-family:sans-serif; font-size:22px; user-select:none; cursor:pointer; z-index:5;}
-  #ui { position:absolute; left:12px; top:12px; display:flex; gap:6px; align-items:center; z-index:10; font-family:sans-serif; }
-  .btn { background: rgba(255,255,255,0.08); color:#fff; border:1px solid rgba(255,255,255,0.12); padding:6px 10px; border-radius:6px; cursor:pointer; font-size:14px;}
-  .label { color:#ddd; font-size:14px; }
+  body { margin:0; overflow:hidden; background:black; }
+  canvas { display:block; }
+  #instructions {
+    position:absolute;
+    top:40%;
+    width:100%;
+    text-align:center;
+    color:white;
+    font-family:sans-serif;
+    font-size:24px;
+    user-select:none;
+    cursor:pointer;
+  }
+  #ui{
+    position:absolute;
+    left:12px;
+    top:12px;
+    display:flex;
+    gap:6px;
+    align-items:center;
+    z-index:10;
+    font-family:sans-serif;
+  }
+  .btn{
+    background: rgba(255,255,255,0.08);
+    color:#fff;
+    border:1px solid rgba(255,255,255,0.12);
+    padding:6px 10px;
+    border-radius:6px;
+    cursor:pointer;
+    user-select:none;
+    font-size:14px;
+  }
+  .btn:active{ transform:translateY(1px); }
+  .label{ color:#ddd; font-size:14px; margin-left:8px; }
 </style>
 </head>
 <body>
@@ -21,7 +49,9 @@
   <button id="pyBtn" class="btn">Py</button>
   <button id="pzBtn" class="btn">Pz</button>
   <button id="dBtn" class="btn">D</button>
-  <div class="label" id="countLabel">particles: 10,000</div>
+  <button id="decBtn" class="btn">–</button>
+  <button id="incBtn" class="btn">+</button>
+  <div class="label" id="countLabel">particles: 10000</div>
 </div>
 
 <script type="module">
@@ -31,286 +61,242 @@ import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/D
 import { PointerLockControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
-// --- mobile detection early
-const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-console.log('isMobile:', isMobile);
-
-// --- Scene & Renderer
+// ---------------- Scene ----------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.01, 2000);
-camera.position.set(0, 5, 20);
-
-// renderer: setPixelRatio = 1 on mobile to reduce GPU stress (some mobile devices exhibit rendering issues otherwise)
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+camera.position.set(0,5,10);
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
 document.body.appendChild(renderer.domElement);
 
-// --- lighting
+// ---------------- Lights ----------------
 scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(10, 20, 10);
+dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
-// --- basic controls
+// ---------------- Controls ----------------
+const isMobile=/Mobi|Android/i.test(navigator.userAgent);
+let pointerLocked=false;
 let controls, orbitControls;
-let pointerLocked = false;
-const instructions = document.getElementById('instructions');
-
-if (isMobile) {
-  orbitControls = new OrbitControls(camera, renderer.domElement);
-  orbitControls.enableDamping = true;
-  orbitControls.dampingFactor = 0.05;
-  orbitControls.minDistance = 5;
-  orbitControls.maxDistance = 200;
-  orbitControls.minPolarAngle = 0;
-  orbitControls.maxPolarAngle = Math.PI * 0.9;
-  orbitControls.enablePan = true;
-  orbitControls.screenSpacePanning = true;
-  orbitControls.target.set(0, 5, 0); // default target until model loads
-  orbitControls.update();
-} else {
-  controls = new PointerLockControls(camera, renderer.domElement);
-  scene.add(controls.getObject());
-  if (instructions) {
-    instructions.addEventListener('click', () => { controls.lock(); startAudio(); });
-    controls.addEventListener('lock', () => { instructions.style.display = 'none'; pointerLocked = true; });
-    controls.addEventListener('unlock', () => { instructions.style.display = 'block'; pointerLocked = false; });
-  }
-  document.addEventListener('keydown', e => {
-    // desktop movement left as-is
-  });
+const move={forward:false,backward:false,left:false,right:false,up:false,down:false};
+const instructions=document.getElementById('instructions');
+if(isMobile){
+    if(instructions) instructions.style.display='none';
+    orbitControls=new OrbitControls(camera,renderer.domElement);
+    orbitControls.enableDamping=true;
+    orbitControls.dampingFactor=0.05;
+    orbitControls.minDistance=5;
+    orbitControls.maxDistance=100;
+    orbitControls.minPolarAngle=0;
+    orbitControls.maxPolarAngle=Math.PI/2;
+    orbitControls.enablePan=true;
+    orbitControls.screenSpacePanning=true;
+}else{
+    controls=new PointerLockControls(camera,renderer.domElement);
+    scene.add(controls.getObject());
+    if(instructions){
+        instructions.addEventListener('click',()=>{
+            controls.lock();
+            startAudio();
+        });
+        controls.addEventListener('lock',()=>{ instructions.style.display='none'; pointerLocked=true; });
+        controls.addEventListener('unlock',()=>{ instructions.style.display='block'; pointerLocked=false; });
+    }
+    document.addEventListener('keydown',e=>{
+        if(e.code==='KeyW') move.forward=true;
+        if(e.code==='KeyS') move.backward=true;
+        if(e.code==='KeyA') move.left=true;
+        if(e.code==='KeyD') move.right=true;
+        if(e.code==='Space') move.up=true;
+        if(e.code==='ShiftLeft') move.down=true;
+    });
+    document.addEventListener('keyup',e=>{
+        if(e.code==='KeyW') move.forward=false;
+        if(e.code==='KeyS') move.backward=false;
+        if(e.code==='KeyA') move.left=false;
+        if(e.code==='KeyD') move.right=false;
+        if(e.code==='Space') move.up=false;
+        if(e.code==='ShiftLeft') move.down=false;
+    });
 }
 
-// --- quick debug helpers: axes so we always see orientation
-const axes = new THREE.AxesHelper(10);
-scene.add(axes);
-
-// --- models loader with robust mobile fallback & diagnostics
-const loader = new GLTFLoader();
-const dracoLoader = new DRACOLoader();
+// ---------------- Load Astronaut ----------------
+const loader=new GLTFLoader();
+const dracoLoader=new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
-
-let mixers = [];
-
-// visible marker sphere that will be placed at the model center for debug
-const debugMarkerGeo = new THREE.SphereGeometry(0.6, 16, 12);
-const debugMarkerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-const debugMarker = new THREE.Mesh(debugMarkerGeo, debugMarkerMat);
-debugMarker.visible = false;
-scene.add(debugMarker);
-
-// helper variables to inspect
-let lastBox = null;
-let lastSphere = null;
-
-loader.load(
-  // try both with and without leading './' depending on hosting — use path without "./"
-  'models/rigid_astronaut.glb',
-  gltf => {
-    console.log('GLTF loaded callback — gltf:', gltf);
-
-    const model = gltf.scene || gltf.scenes[0];
-    if (!model) {
-      console.error('No scene in gltf');
-      return;
-    }
-
-    // Add to scene first so bounding boxes compute correctly
+let mixers=[];
+loader.load('./models/rigid_astronaut.glb',gltf=>{
+    const model=gltf.scene||gltf.scenes[0];
+    model.scale.set(2,2,2);
     scene.add(model);
-
-    // Force simple material on mobile to avoid PBR issues
-    if (isMobile) {
-      model.traverse(obj => {
-        if (obj.isMesh) {
-          obj.material = new THREE.MeshBasicMaterial({ color: 0xdddddd, side: THREE.DoubleSide });
-          obj.frustumCulled = false; // disable frustum culling on meshes as a safety net
-        }
-      });
-    } else {
-      // desktop: keep original materials but still disable frustum culling to debug
-      model.traverse(obj => { if (obj.isMesh) obj.frustumCulled = false; });
-    }
-
-    // ensure matrices are updated
-    model.updateMatrixWorld(true);
-
-    // compute bounding box & sphere *after* model is in scene and matrix world updated
-    const box = new THREE.Box3().setFromObject(model);
-    const sphere = new THREE.Sphere();
-    box.getBoundingSphere(sphere);
-
-    lastBox = box;
-    lastSphere = sphere;
-
-    console.log('Model bounding box:', box.min, box.max);
-    console.log('Model bounding sphere:', sphere.center, 'radius:', sphere.radius);
-
-    // put feet at ground (wave plane is at y ~ -0.5 in your scene), lift a bit
-    const lift = 1.5;
-    model.position.y -= box.min.y - lift; // push to positive y above plane
-    model.updateMatrixWorld(true);
-
-    // make model visible / larger if mobile (debug)
-    if (isMobile) {
-      model.scale.set(3, 3, 3);
-      // recompute bounding box after scale & position
-      const box2 = new THREE.Box3().setFromObject(model);
-      const sphere2 = new THREE.Sphere();
-      box2.getBoundingSphere(sphere2);
-      lastBox = box2;
-      lastSphere = sphere2;
-      console.log('After scale/position bounding box:', box2.min, box2.max, 'sphere:', sphere2.center, sphere2.radius);
-    }
-
-    // show debug marker at center
-    debugMarker.position.copy(lastSphere.center);
-    debugMarker.visible = true;
-
-    // add wireframe box helper
-    const boxHelper = new THREE.Box3Helper(lastBox, 0x00ff00);
-    scene.add(boxHelper);
-
-    // mobile camera framing and controls target
+    const box=new THREE.Box3().setFromObject(model);
+    const center=new THREE.Vector3();
+    box.getCenter(center);
+    model.position.y=-box.min.y+5;
+     // On mobile, make OrbitControls orbit around astronaut
     if (isMobile && orbitControls) {
-      // set camera back away from the sphere center by radius * factor
-      const distance = (lastSphere.radius || 5) * 3 + 5;
-      camera.position.set(lastSphere.center.x, lastSphere.center.y + lastSphere.radius * 0.6 + 2, lastSphere.center.z + distance);
-      camera.lookAt(lastSphere.center);
-      orbitControls.target.copy(lastSphere.center);
-      orbitControls.update();
-      console.log('Mobile camera repositioned to', camera.position, 'looking at', lastSphere.center);
-    } else {
-      // desktop fallback camera
-      camera.position.set(0, 5, 20);
-      camera.lookAt(0, 2, 0);
+        const box = new THREE.Box3().setFromObject(model);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        orbitControls.target.copy(center);
+        orbitControls.update();
     }
-
-    // animations (if present)
-    if (gltf.animations && gltf.animations.length > 0) {
-      const mixer = new THREE.AnimationMixer(model);
-      gltf.animations.forEach(clip => mixer.clipAction(clip).play());
-      mixers.push(mixer);
+    if(gltf.animations&&gltf.animations.length>0){
+        const mixer=new THREE.AnimationMixer(model);
+        gltf.animations.forEach(clip=>mixer.clipAction(clip).play());
+        mixers.push(mixer);
     }
+});
 
-    console.log('Model added to scene successfully.');
-  },
-  // onProgress
-  xhr => {
-    if (xhr.lengthComputable) {
-      console.log(`Model ${ (xhr.loaded / xhr.total * 100).toFixed(1) }% loaded`);
-    }
-  },
-  // onError
-  err => {
-    console.error('Error loading GLTF:', err);
-    // Try alternate path if default fails (helpful for some hosting setups)
-    // (We can't retry automatically here, but the console message will point you to path issues.)
-  }
-);
-
-// --- simple wave plane (lowered a bit to avoid hiding model)
-const waveGeo = new THREE.PlaneGeometry(200, 200, 128, 128);
-waveGeo.rotateX(-Math.PI / 2);
-const waveMat = new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.4 }); // simpler material for mobile safety
-const waveMesh = new THREE.Mesh(waveGeo, waveMat);
-waveMesh.position.y = -1.0; // slightly lower so model won't be clipped
-scene.add(waveMesh);
-
-// --- minimal electron cloud (unchanged visual)
-function createCircleTexture() {
-  const size = 64;
-  const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, size, size);
-  return new THREE.CanvasTexture(canvas);
-}
-const electronMat = new THREE.PointsMaterial({ size: isMobile ? 0.08 : 0.05, map: createCircleTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-let electronGeo = null, electronCloud = null, basePositions = null;
-function generatePositions(count=4000) {
-  const arr = new Float32Array(count * 3);
-  for (let i=0, idx=0; i<count; i++, idx+=3) {
-    const r = Math.cbrt(Math.random()) * 4;
-    const theta = Math.acos(1 - 2 * Math.random());
-    const phi = Math.random() * Math.PI * 2;
-    arr[idx]   = r * Math.sin(theta) * Math.cos(phi);
-    arr[idx+1] = r * Math.sin(theta) * Math.sin(phi);
-    arr[idx+2] = r * Math.cos(theta);
-  }
-  return arr;
-}
-function createElectronCloud() {
-  if (electronCloud) { scene.remove(electronCloud); electronGeo.dispose(); electronGeo=null; electronCloud=null; basePositions=null; }
-  const pos = generatePositions(4000);
-  basePositions = pos.slice();
-  electronGeo = new THREE.BufferGeometry();
-  electronGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  electronCloud = new THREE.Points(electronGeo, electronMat);
-  electronCloud.position.set(0, 6, 0);
-  scene.add(electronCloud);
-}
-createElectronCloud();
-
-// --- audio (kept minimal; call startAudio() by clicking for desktop pointer lock)
-const listener = new THREE.AudioListener(); camera.add(listener);
-const sound = new THREE.Audio(listener); let analyser = null;
-function startAudio() {
-  const audioLoader = new THREE.AudioLoader();
-  audioLoader.load('models/fghiiiaa.wav', buffer => {
-    sound.setBuffer(buffer); sound.setLoop(true); sound.setVolume(0.6); sound.play();
-    analyser = new THREE.AudioAnalyser(sound, 128);
-    console.log('Audio started, analyser ready.');
-  }, undefined, err => console.error('Audio load error', err));
+// ---------------- Audio ----------------
+const listener=new THREE.AudioListener(); camera.add(listener);
+const sound=new THREE.Audio(listener); let analyser;
+function startAudio(){
+    const audioLoader=new THREE.AudioLoader();
+    audioLoader.load('./models/fghiiiaa.wav',buffer=>{
+        sound.setBuffer(buffer);
+        sound.setLoop(true);
+        sound.setVolume(0.6);
+        sound.play();
+        analyser=new THREE.AudioAnalyser(sound,128);
+    });
 }
 
-// --- animate loop & simple diagnostics
-const clock = new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  const dt = clock.getDelta();
+// ---------------- Wave Plane ----------------
+const waveGeo=new THREE.PlaneGeometry(200,200,128,128); waveGeo.rotateX(-Math.PI/2);
+const waveMat=new THREE.ShaderMaterial({
+    uniforms:{time:{value:0},audioAmp:{value:0}},
+    vertexShader:`uniform float time; uniform float audioAmp; varying float vHeight;
+    void main(){ vec3 pos=position; pos.y+=sin(pos.x*0.1+time*2.0)*1.2; pos.y+=sin(pos.z*0.1+time*1.5)*1.2; pos.y+=audioAmp*3.0; pos.y-=0.5; vHeight=pos.y; gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0);}`,
+    fragmentShader:`varying float vHeight; void main(){ float gray=0.1+0.2*(vHeight*0.1+0.5); gl_FragColor=vec4(vec3(gray),0.5);}`,
+    transparent:true, side:THREE.DoubleSide
+});
+scene.add(new THREE.Mesh(waveGeo,waveMat));
 
-  // update mixers
-  mixers.forEach(m => m.update(dt));
+// ---------------- Electron Cloud ----------------
+let particleCount=10000, minParticles=2000, maxParticles=20000;
+let electronGeo=null, electronCloud=null, basePositions=null;
+const electronMat=new THREE.PointsMaterial({
+    size:isMobile?0.06:0.05, transparent:true, opacity:0.4,
+    depthWrite:false, blending:THREE.AdditiveBlending,
+    map:createCircleTexture(), alphaTest:0.01
+});
+let currentOrbital='s';
+const sBtn=document.getElementById('sBtn'), pxBtn=document.getElementById('pxBtn'),
+      pyBtn=document.getElementById('pyBtn'), pzBtn=document.getElementById('pzBtn'),
+      dBtn=document.getElementById('dBtn'), incBtn=document.getElementById('incBtn'),
+      decBtn=document.getElementById('decBtn'), countLabel=document.getElementById('countLabel');
+function updateCountLabel(){ countLabel.textContent=`particles: ${particleCount.toLocaleString()}`; }
+updateCountLabel();
 
-  // update electron cloud breathing (simple)
-  if (electronCloud && electronGeo && basePositions) {
-    const posAttr = electronGeo.getAttribute('position');
-    const t = clock.elapsedTime;
-    for (let i=0;i<posAttr.count;i++){
-      const pi = i*3;
-      const s = 1 + 0.04 * Math.sin(t + (i%17));
-      posAttr.array[pi]   = basePositions[pi] * s;
-      posAttr.array[pi+1] = basePositions[pi+1] * s;
-      posAttr.array[pi+2] = basePositions[pi+2] * s;
+[sBtn,pxBtn,pyBtn,pzBtn,dBtn].forEach((btn,i)=>{ btn.addEventListener('click',()=>{ 
+    const types=['s','px','py','pz','d']; currentOrbital=types[i]; regenerateOrbital(); 
+});});
+incBtn.addEventListener('click',()=>{ particleCount=Math.min(maxParticles,particleCount+2000); updateCountLabel(); regenerateOrbital(); });
+decBtn.addEventListener('click',()=>{ particleCount=Math.max(minParticles,particleCount-2000); updateCountLabel(); regenerateOrbital(); });
+
+function createCircleTexture(){
+    const size=64;
+    const canvas=document.createElement('canvas'); canvas.width=size; canvas.height=size;
+    const ctx=canvas.getContext('2d');
+    const grad=ctx.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
+    grad.addColorStop(0,'rgba(255,255,255,1)');
+    grad.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,size,size);
+    return new THREE.CanvasTexture(canvas);
+}
+
+function generatePositions(type,count){
+    const arr=new Float32Array(count*3); let idx=0;
+    for(let i=0;i<count;i++){
+        let x=0,y=0,z=0; const r=Math.cbrt(Math.random())*6;
+        if(type==='s'){ const theta=Math.acos(1-2*Math.random()); const phi=Math.random()*2*Math.PI;
+            x=r*Math.sin(theta)*Math.cos(phi); y=r*Math.sin(theta)*Math.sin(phi); z=r*Math.cos(theta);
+        } else if(type==='px'){ x=r*(Math.random()<0.5?-1:1); y=(Math.random()-0.5)*r*0.5; z=(Math.random()-0.5)*r*0.5;
+        } else if(type==='py'){ y=r*(Math.random()<0.5?-1:1); x=(Math.random()-0.5)*r*0.5; z=(Math.random()-0.5)*r*0.5;
+        } else if(type==='pz'){ z=r*(Math.random()<0.5?-1:1); x=(Math.random()-0.5)*r*0.5; y=(Math.random()-0.5)*r*0.5;
+        } else if(type==='d'){ const lobe=Math.floor(Math.random()*4); const baseAngle=(Math.PI/2)*lobe;
+            x=Math.cos(baseAngle)*r*0.7+(Math.random()-0.5)*0.8; y=(Math.random()-0.5)*r*0.5; z=Math.sin(baseAngle)*r*0.7+(Math.random()-0.5)*0.8;
+        }
+        arr[idx++]=x; arr[idx++]=y; arr[idx++]=z;
     }
-    posAttr.needsUpdate = true;
-  }
+    return arr;
+}
 
-  if (orbitControls) orbitControls.update();
-  renderer.render(scene, camera);
+function regenerateOrbital(){
+    if(electronCloud){ scene.remove(electronCloud); electronGeo.dispose(); electronGeo=null; electronCloud=null; basePositions=null; }
+    const positions=generatePositions(currentOrbital,particleCount);
+    basePositions=positions.slice();
+    electronGeo=new THREE.BufferGeometry();
+    electronGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    electronGeo.setAttribute('phase', new THREE.BufferAttribute(new Float32Array(particleCount).map(()=>Math.random()*Math.PI*2),1));
+    electronCloud=new THREE.Points(electronGeo,electronMat);
+    electronCloud.position.set(0,6,0);
+    scene.add(electronCloud);
+}
+regenerateOrbital();
+
+// ---------------- Animate ----------------
+const clock=new THREE.Clock();
+function animate(){
+    requestAnimationFrame(animate);
+    const delta=clock.getDelta();
+    mixers.forEach(m=>m.update(delta));
+
+    if(!isMobile && pointerLocked){
+        const speed=20*delta;
+        const forward=new THREE.Vector3(); camera.getWorldDirection(forward); forward.y=0; forward.normalize();
+        const right=new THREE.Vector3(); right.crossVectors(camera.up,forward).normalize().negate();
+        const obj=controls.getObject();
+        if(move.forward) obj.position.addScaledVector(forward,speed);
+        if(move.backward) obj.position.addScaledVector(forward,-speed);
+        if(move.left) obj.position.addScaledVector(right,-speed);
+        if(move.right) obj.position.addScaledVector(right,speed);
+        if(move.up) obj.position.y+=speed;
+        if(move.down) obj.position.y-=speed;
+    }
+
+    // waves
+    if(analyser) waveMat.uniforms.audioAmp.value=analyser.getAverageFrequency()/256;
+    waveMat.uniforms.time.value+=delta;
+
+    // electron cloud audio animation
+    if(electronCloud && electronGeo && basePositions){
+        let audioScale=1, freqShift=1;
+        if(analyser){
+            const avg=analyser.getAverageFrequency()/128.0; audioScale=1+avg*0.3;
+            const data=analyser.getFrequencyData(); let weightedSum=0,sum=0;
+            for(let i=0;i<data.length;i++){ weightedSum+=i*data[i]; sum+=data[i]; }
+            if(sum>0){ freqShift=0.5+weightedSum/sum/data.length; }
+        }
+        electronMat.opacity=0.25+0.2*Math.sin(clock.elapsedTime*2.0*freqShift);
+        const posAttr=electronGeo.getAttribute('position');
+        const phaseAttr=electronGeo.getAttribute('phase');
+        for(let i=0;i<posAttr.count;i++){
+            const pi=i*3,ph=phaseAttr.getX(i);
+            posAttr.array[pi]=basePositions[pi]*audioScale*(1+0.05*Math.sin(clock.elapsedTime+ph));
+            posAttr.array[pi+1]=basePositions[pi+1]*audioScale*(1+0.05*Math.sin(clock.elapsedTime+ph));
+            posAttr.array[pi+2]=basePositions[pi+2]*audioScale*(1+0.05*Math.sin(clock.elapsedTime+ph));
+        }
+        posAttr.needsUpdate=true;
+        electronCloud.rotation.y+=0.001*freqShift;
+    }
+
+    if(orbitControls) orbitControls.update();
+    renderer.render(scene,camera);
 }
 animate();
 
-// --- resize
-window.addEventListener('resize', ()=> {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+// ---------------- Resize ----------------
+window.addEventListener('resize',()=>{
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
 });
-
-// --- final note printed to console to guide debugging
-console.log('Debug build loaded. If you do not see the astronaut on mobile:');
-console.log('- Open remote devtools (Safari/Chrome remote debugging) and check console logs above.');
-console.log('- Look for "GLTF loaded callback" and bounding box / sphere prints.');
-console.log('- If no logs from loader appear, check the model path: "models/rigid_astronaut.glb" must be accessible (case-sensitive).');
-console.log('- If loader callback prints but object not visible, check the green Box3Helper and red marker sphere. They mark the model bounds/center.');
-
 </script>
 </body>
 </html>
