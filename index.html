@@ -131,12 +131,30 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
     // lift model so bottom touches waves
     model.position.y -= box.min.y;
 
-    // --- Mobile: auto-fit camera ---
+   // Force simpler material on mobile
+    if (isMobile) {
+        model.traverse(obj => {
+            if (obj.isMesh) {
+                obj.material = new THREE.MeshStandardMaterial({ color: 0xffeeee });
+            }
+        });
+    }
+
+    scene.add(model);
+
+    // bounding sphere
+    const box = new THREE.Box3().setFromObject(model);
+    const sphere = new THREE.Sphere();
+    box.getBoundingSphere(sphere);
+
+    // lift astronaut
+    model.position.y = -box.min.y + 5;
+
     if (isMobile && orbitControls) {
-        const distance = sphere.radius * 2.5;
+        const distance = sphere.radius * 3;
         camera.position.set(
             sphere.center.x,
-            sphere.center.y + sphere.radius * 0.5,
+            sphere.center.y + sphere.radius,
             sphere.center.z + distance
         );
         orbitControls.target.copy(sphere.center);
