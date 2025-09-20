@@ -49,7 +49,6 @@ The combination of these techniques transforms real-world satellite data into a 
 - **Shaders**: Custom shaders for:
   - Electron clouds
   - Wave surfaces
-  - Reflective mirrors
 - **Interactive Orbitals**: Electron positions are generated procedurally based on s, p, d orbital shapes.
 
 ---
