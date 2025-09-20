@@ -112,26 +112,12 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixers = [];
 loader.load('./models/rigid_astronaut.glb', gltf=>{
+    console.log("Model loaded:", gltf);
+
     const model = gltf.scene || gltf.scenes[0];
     model.scale.set(2,2,2);
-    scene.add(model);
 
-    // animations
-    if (gltf.animations && gltf.animations.length > 0) {
-        const mixer = new THREE.AnimationMixer(model);
-        gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
-        mixers.push(mixer);
-    }
-
-    // bounding sphere
-    const box = new THREE.Box3().setFromObject(model);
-    const sphere = new THREE.Sphere();
-    box.getBoundingSphere(sphere);
-
-    // lift model so bottom touches waves
-    model.position.y -= box.min.y;
-
-   // Force simpler material on mobile
+    // Force simpler material on mobile (debug)
     if (isMobile) {
         model.traverse(obj => {
             if (obj.isMesh) {
@@ -142,14 +128,15 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
 
     scene.add(model);
 
-    // bounding sphere
+    // --- bounding box & sphere ---
     const box = new THREE.Box3().setFromObject(model);
     const sphere = new THREE.Sphere();
     box.getBoundingSphere(sphere);
 
-    // lift astronaut
+    // lift astronaut above waves
     model.position.y = -box.min.y + 5;
 
+    // --- Mobile camera setup ---
     if (isMobile && orbitControls) {
         const distance = sphere.radius * 3;
         camera.position.set(
@@ -160,8 +147,14 @@ loader.load('./models/rigid_astronaut.glb', gltf=>{
         orbitControls.target.copy(sphere.center);
         orbitControls.update();
     }
-});
 
+    // --- animations ---
+    if (gltf.animations && gltf.animations.length > 0) {
+        const mixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+        mixers.push(mixer);
+    }
+});
 // --- Audio & analyser ---
 const listener = new THREE.AudioListener();
 camera.add(listener);
