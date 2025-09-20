@@ -5,7 +5,7 @@
 <title>Berlinale Alien Walk — Quantum Scene</title>
 <style>
   body { margin:0; overflow:hidden; background:black; }
-  canvas { display:block; }
+  canvas { display:block; position:fixed; top:0; left:0; z-index:0; }
   #instructions {
     position:absolute;
     top:40%;
@@ -16,6 +16,7 @@
     font-size:24px;
     user-select:none;
     cursor:pointer;
+    z-index:5;
   }
   #ui{
     position:absolute;
@@ -51,7 +52,7 @@
   <button id="dBtn" class="btn">D</button>
   <button id="decBtn" class="btn">–</button>
   <button id="incBtn" class="btn">+</button>
-  <div class="label" id="countLabel">particles: 10000</div>
+  <div class="label" id="countLabel">particles: 10,000</div>
 </div>
 
 <script type="module">
@@ -65,7 +66,7 @@ import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/control
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.01, 2000);
-camera.position.set(0,5,10);
+camera.position.set(0,5,20);
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
@@ -83,6 +84,7 @@ let pointerLocked=false;
 let controls, orbitControls;
 const move={forward:false,backward:false,left:false,right:false,up:false,down:false};
 const instructions=document.getElementById('instructions');
+
 if(isMobile){
     if(instructions) instructions.style.display='none';
     orbitControls=new OrbitControls(camera,renderer.domElement);
@@ -93,7 +95,8 @@ if(isMobile){
     orbitControls.minPolarAngle=0;
     orbitControls.maxPolarAngle=Math.PI/2;
     orbitControls.enablePan=true;
-    orbitControls.screenSpacePanning=true;
+    orbitControls.target.set(0,5,0); // default target
+    orbitControls.update();
 }else{
     controls=new PointerLockControls(camera,renderer.domElement);
     scene.add(controls.getObject());
@@ -131,14 +134,24 @@ loader.setDRACOLoader(dracoLoader);
 let mixers=[];
 loader.load('./models/rigid_astronaut.glb',gltf=>{
     const model=gltf.scene||gltf.scenes[0];
-    model.scale.set(2,2,2);
+    if(isMobile){ model.scale.set(3,3,3); } else { model.scale.set(2,2,2); }
     scene.add(model);
+
+    // Center and lift model
     const box=new THREE.Box3().setFromObject(model);
     const center=new THREE.Vector3();
     box.getCenter(center);
-    model.position.y=-box.min.y+5;
-    if(isMobile&&orbitControls){ camera.position.set(0,5,10); orbitControls.target.copy(center); orbitControls.update(); }
-    if(gltf.animations&&gltf.animations.length>0){
+    model.position.y -= box.min.y; // feet at ground
+
+    // Adjust mobile camera after model positioned
+    if(isMobile && orbitControls){
+        camera.position.set(center.x, center.y+5, center.z+20);
+        orbitControls.target.copy(center);
+        orbitControls.update();
+    }
+
+    // Animations
+    if(gltf.animations && gltf.animations.length>0){
         const mixer=new THREE.AnimationMixer(model);
         gltf.animations.forEach(clip=>mixer.clipAction(clip).play());
         mixers.push(mixer);
