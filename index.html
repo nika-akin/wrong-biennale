@@ -17,13 +17,12 @@
     user-select: none;
     cursor: pointer;
   }
-  /* Simple UI for orbital controls */
   #ui {
     position: absolute;
     left: 12px;
     top: 12px;
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
     z-index: 10;
     font-family: sans-serif;
@@ -32,27 +31,23 @@
     background: rgba(255,255,255,0.08);
     color: #fff;
     border: 1px solid rgba(255,255,255,0.12);
-    padding: 8px 10px;
+    padding: 6px 10px;
     border-radius: 6px;
     cursor: pointer;
     user-select: none;
     font-size: 14px;
   }
   .btn:active { transform: translateY(1px); }
-  .label {
-    color: #ddd;
-    font-size: 14px;
-    margin-left: 8px;
-  }
+  .label { color: #ddd; font-size: 14px; margin-left: 8px; }
 </style>
 </head>
 <body>
 <div id="instructions">Click to start FPS controls</div>
-
-<!-- Orbital UI -->
 <div id="ui">
   <button id="sBtn" class="btn">S</button>
-  <button id="pBtn" class="btn">P</button>
+  <button id="pxBtn" class="btn">Px</button>
+  <button id="pyBtn" class="btn">Py</button>
+  <button id="pzBtn" class="btn">Pz</button>
   <button id="dBtn" class="btn">D</button>
   <button id="decBtn" class="btn">–</button>
   <button id="incBtn" class="btn">+</button>
@@ -87,13 +82,11 @@ scene.add(dirLight);
 const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 let pointerLocked = false;
 let controls, orbitControls;
-
 const move = {forward:false, backward:false, left:false, right:false, up:false, down:false};
 const instructions = document.getElementById('instructions');
 
 if(isMobile){
     if (instructions) instructions.style.display = 'none';
-
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
     orbitControls.dampingFactor = 0.05;
@@ -106,24 +99,20 @@ if(isMobile){
 } else {
     controls = new PointerLockControls(camera, renderer.domElement);
     scene.add(controls.getObject());
-
     if (instructions) {
         instructions.addEventListener('click', ()=>{
             controls.lock();
             startAudio();
         });
-
         controls.addEventListener('lock', () => {
             instructions.style.display = 'none';
             pointerLocked = true;
         });
-
         controls.addEventListener('unlock', () => {
             instructions.style.display = 'block';
             pointerLocked = false;
         });
     }
-
     document.addEventListener('keydown', e=>{
         if(e.code==='KeyW') move.forward=true;
         if(e.code==='KeyS') move.backward=true;
@@ -142,7 +131,7 @@ if(isMobile){
     });
 }
 
-// ---------------- Load GLTF Alien (unchanged) ----------------
+// ---------------- Load GLTF Alien ----------------
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
@@ -150,50 +139,25 @@ loader.setDRACOLoader(dracoLoader);
 
 let mixers = [];
 loader.load('./models/rigid_astronaut.glb', gltf=>{
-    console.log('Model loaded', gltf);
     const model = gltf.scene || gltf.scenes[0];
     model.scale.set(2,2,2);
-
-    // keep PBR on desktop, simple on mobile to avoid shader issues
-    if (isMobile) {
-        model.traverse(obj => {
-            if (obj.isMesh) {
-                obj.material = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.1, roughness: 0.8 });
-            }
-        });
-    }
-
+    if(isMobile) model.traverse(obj => { if(obj.isMesh) obj.material = new THREE.MeshStandardMaterial({color:0xdddddd, metalness:0.1, roughness:0.8}); });
     scene.add(model);
-
-    // bounding box + center
     const box = new THREE.Box3().setFromObject(model);
     const center = new THREE.Vector3();
     box.getCenter(center);
-
-    // lift model above the waves so it's not clipped
     model.position.y = -box.min.y + 5;
-
-    // On mobile keep camera start consistent but target toward model center
-    if (isMobile && orbitControls) {
-        camera.position.set(0,5,10);
-        orbitControls.target.copy(center);
-        orbitControls.update();
-    }
-
-    // animations
-    if (gltf.animations && gltf.animations.length > 0) {
+    if(isMobile && orbitControls){ camera.position.set(0,5,10); orbitControls.target.copy(center); orbitControls.update(); }
+    if(gltf.animations && gltf.animations.length>0){
         const mixer = new THREE.AnimationMixer(model);
-        gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+        gltf.animations.forEach((clip)=>mixer.clipAction(clip).play());
         mixers.push(mixer);
     }
 });
 
-// ---------------- Audio & analyser (unchanged) ----------------
-const listener = new THREE.AudioListener();
-camera.add(listener);
-const sound = new THREE.Audio(listener);
-let analyser;
-
+// ---------------- Audio ----------------
+const listener = new THREE.AudioListener(); camera.add(listener);
+const sound = new THREE.Audio(listener); let analyser;
 function startAudio(){
     const audioLoader = new THREE.AudioLoader();
     audioLoader.load('./models/fghiiiaa.wav', buffer=>{
@@ -205,236 +169,145 @@ function startAudio(){
     });
 }
 
-// ---------------- Wave Plane (unchanged) ----------------
-const waveSize = 200;
-const waveSegments = 128;
+// ---------------- Wave Plane ----------------
+const waveSize=200, waveSegments=128;
 const waveGeo = new THREE.PlaneGeometry(waveSize, waveSize, waveSegments, waveSegments);
 waveGeo.rotateX(-Math.PI/2);
-
 const waveMat = new THREE.ShaderMaterial({
-    uniforms: {
-        time: { value: 0 },
-        audioAmp: { value: 0 }
-    },
-    vertexShader: `
-        uniform float time;
-        uniform float audioAmp;
-        varying float vHeight;
-        void main() {
-            vec3 pos = position;
-            pos.y += sin(pos.x*0.1 + time*2.0) * 1.2;
-            pos.y += sin(pos.z*0.1 + time*1.5) * 1.2;
-            pos.y += audioAmp * 3.0;
-            pos.y -= 0.5;
-            vHeight = pos.y;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.0);
-        }
-    `,
-    fragmentShader: `
-        varying float vHeight;
-        void main() {
-            float gray = 0.1 + 0.2 * (vHeight*0.1 + 0.5);
-            gl_FragColor = vec4(vec3(gray),0.5);
-        }
-    `,
-    transparent: true,
-    side: THREE.DoubleSide
+    uniforms:{ time:{value:0}, audioAmp:{value:0} },
+    vertexShader:`
+    uniform float time;
+    uniform float audioAmp;
+    varying float vHeight;
+    void main(){
+        vec3 pos = position;
+        pos.y += sin(pos.x*0.1+time*2.0)*1.2;
+        pos.y += sin(pos.z*0.1+time*1.5)*1.2;
+        pos.y += audioAmp*3.0;
+        pos.y -= 0.5;
+        vHeight = pos.y;
+        gl_Position = projectionMatrix*modelViewMatrix*vec4(pos,1.0);
+    }`,
+    fragmentShader:`varying float vHeight;
+    void main(){
+        float gray = 0.1 + 0.2*(vHeight*0.1+0.5);
+        gl_FragColor = vec4(vec3(gray),0.5);
+    }`,
+    transparent:true, side:THREE.DoubleSide
 });
+const waveMesh = new THREE.Mesh(waveGeo,waveMat); scene.add(waveMesh);
 
-const waveMesh = new THREE.Mesh(waveGeo, waveMat);
-scene.add(waveMesh);
-
-// ---------------- Electron Cloud (configurable orbitals) ----------------
-
-// default particle count
-let particleCount = 10000;
-const minParticles = 2000;
-const maxParticles = 20000;
-
-// container variables for points
-let electronGeo = null;
-const electronMat = new THREE.PointsMaterial({
-    color: 0x00ffff,
-    size: isMobile ? 0.06 : 0.05,
-    transparent: true,
-    opacity: 0.4,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending
+// ---------------- Electron Cloud ----------------
+let particleCount=10000, minParticles=2000, maxParticles=20000;
+let electronGeo=null; const electronMat = new THREE.PointsMaterial({
+    color:0x00ffff, size:isMobile?0.06:0.05, transparent:true, opacity:0.4, depthWrite:false, blending:THREE.AdditiveBlending
 });
-let electronCloud = null;
+let electronCloud=null;
+let currentOrbital='s'; // 's','px','py','pz','d'
 
-// current orbital type
-let currentOrbital = 's'; // 's' | 'p' | 'd'
+const sBtn=document.getElementById('sBtn');
+const pxBtn=document.getElementById('pxBtn');
+const pyBtn=document.getElementById('pyBtn');
+const pzBtn=document.getElementById('pzBtn');
+const dBtn=document.getElementById('dBtn');
+const incBtn=document.getElementById('incBtn');
+const decBtn=document.getElementById('decBtn');
+const countLabel=document.getElementById('countLabel');
 
-// UI elements
-const sBtn = document.getElementById('sBtn');
-const pBtn = document.getElementById('pBtn');
-const dBtn = document.getElementById('dBtn');
-const incBtn = document.getElementById('incBtn');
-const decBtn = document.getElementById('decBtn');
-const countLabel = document.getElementById('countLabel');
+sBtn.addEventListener('click',()=>{currentOrbital='s'; regenerateOrbital();});
+pxBtn.addEventListener('click',()=>{currentOrbital='px'; regenerateOrbital();});
+pyBtn.addEventListener('click',()=>{currentOrbital='py'; regenerateOrbital();});
+pzBtn.addEventListener('click',()=>{currentOrbital='pz'; regenerateOrbital();});
+dBtn.addEventListener('click',()=>{currentOrbital='d'; regenerateOrbital();});
+incBtn.addEventListener('click',()=>{particleCount=Math.min(maxParticles,particleCount+2000); updateCountLabel(); regenerateOrbital();});
+decBtn.addEventListener('click',()=>{particleCount=Math.max(minParticles,particleCount-2000); updateCountLabel(); regenerateOrbital();});
+function updateCountLabel(){ countLabel.textContent=`particles: ${particleCount.toLocaleString()}`; } updateCountLabel();
 
-sBtn.addEventListener('click', ()=>{ currentOrbital='s'; regenerateOrbital(); });
-pBtn.addEventListener('click', ()=>{ currentOrbital='p'; regenerateOrbital(); });
-dBtn.addEventListener('click', ()=>{ currentOrbital='d'; regenerateOrbital(); });
-incBtn.addEventListener('click', ()=>{ particleCount = Math.min(maxParticles, particleCount + 2000); updateCountLabel(); regenerateOrbital(); });
-decBtn.addEventListener('click', ()=>{ particleCount = Math.max(minParticles, particleCount - 2000); updateCountLabel(); regenerateOrbital(); });
-function updateCountLabel(){ countLabel.textContent = `particles: ${particleCount.toLocaleString()}`; }
-updateCountLabel();
-
-// helper: generate positions for orbital types
-function generatePositions(type, count){
-    const posArr = new Float32Array(count * 3);
-    let idx = 0;
-
-    if (type === 's') {
-        // spherical distribution (radial falloff)
-        for (let i=0; i<count; i++){
-            const r = Math.cbrt(Math.random()) * 6.0; // radius
-            const theta = Math.acos(1 - 2 * Math.random());
-            const phi = Math.random() * Math.PI * 2;
-
-            const x = r * Math.sin(theta) * Math.cos(phi);
-            const y = r * Math.sin(theta) * Math.sin(phi);
-            const z = r * Math.cos(theta);
-
-            posArr[idx++] = x;
-            posArr[idx++] = y;
-            posArr[idx++] = z;
+// helper: generate orbital positions
+function generatePositions(type,count){
+    const arr=new Float32Array(count*3); let idx=0;
+    for(let i=0;i<count;i++){
+        let x=0,y=0,z=0;
+        const r = Math.cbrt(Math.random())*6;
+        if(type==='s'){ // spherical
+            const theta=Math.acos(1-2*Math.random());
+            const phi=Math.random()*2*Math.PI;
+            x=r*Math.sin(theta)*Math.cos(phi);
+            y=r*Math.sin(theta)*Math.sin(phi);
+            z=r*Math.cos(theta);
+        } else if(type==='px'){ x=r*(Math.random()<0.5?-1:1); y=(Math.random()-0.5)*r*0.5; z=(Math.random()-0.5)*r*0.5;
+        } else if(type==='py'){ y=r*(Math.random()<0.5?-1:1); x=(Math.random()-0.5)*r*0.5; z=(Math.random()-0.5)*r*0.5;
+        } else if(type==='pz'){ z=r*(Math.random()<0.5?-1:1); x=(Math.random()-0.5)*r*0.5; y=(Math.random()-0.5)*r*0.5;
+        } else if(type==='d'){ // four-lobe approx
+            const lobe=Math.floor(Math.random()*4); const baseAngle=(Math.PI/2)*lobe;
+            x=Math.cos(baseAngle)*r*0.7+(Math.random()-0.5)*0.8;
+            y=(Math.random()-0.5)*r*0.5;
+            z=Math.sin(baseAngle)*r*0.7+(Math.random()-0.5)*0.8;
         }
-    } else if (type === 'p') {
-        // two lobes along X axis (approximate p-orbital)
-        for (let i=0; i<count; i++){
-            // choose lobe negative or positive
-            const sign = Math.random() < 0.5 ? -1 : 1;
-            // radius biased closer to center
-            const r = Math.cbrt(Math.random()) * 5.0;
-            const theta = Math.acos(1 - 2 * Math.random());
-            const phi = Math.random() * Math.PI * 2;
-
-            // generate sphere point then push along x by sign*offset
-            const x = sign * (Math.abs(Math.cos(theta)) * r + 1.0);
-            const y = r * Math.sin(theta) * Math.sin(phi) * 0.6;
-            const z = r * Math.sin(theta) * Math.cos(phi) * 0.6;
-
-            posArr[idx++] = x;
-            posArr[idx++] = y;
-            posArr[idx++] = z;
-        }
-    } else if (type === 'd') {
-        // approximate d-orbital (4-lobe clover) around XZ plane
-        for (let i=0; i<count; i++){
-            // pick one of 4 lobes
-            const lobe = Math.floor(Math.random()*4);
-            const baseAngle = (Math.PI/2) * lobe;
-            const r = Math.cbrt(Math.random()) * 5.5;
-            const spread = 0.6 + Math.random()*0.8;
-
-            const x = Math.cos(baseAngle) * (r * spread) + (Math.random()-0.5)*0.8;
-            const y = (Math.random()-0.5) * r * 0.6;
-            const z = Math.sin(baseAngle) * (r * spread) + (Math.random()-0.5)*0.8;
-
-            posArr[idx++] = x;
-            posArr[idx++] = y;
-            posArr[idx++] = z;
-        }
+        arr[idx++]=x; arr[idx++]=y; arr[idx++]=z;
     }
-
-    return posArr;
+    return arr;
 }
 
-// create or update the Points object
 function regenerateOrbital(){
-    // remove old cloud
-    if (electronCloud){
-        scene.remove(electronCloud);
-        electronGeo.dispose();
-        electronGeo = null;
-        electronCloud = null;
-    }
-
-    // generate positions
-    const positions = generatePositions(currentOrbital, particleCount);
-    electronGeo = new THREE.BufferGeometry();
-    electronGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    // optionally add a small random attribute for per-particle phase (used for subtle motion)
-    const phases = new Float32Array(particleCount);
-    for (let i=0;i<particleCount;i++) phases[i] = Math.random() * Math.PI * 2;
-    electronGeo.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
-
-    electronCloud = new THREE.Points(electronGeo, electronMat);
-    // place the electron cloud near the scene center (slightly above waves)
-    electronCloud.position.set(0, 6, 0);
+    if(electronCloud){ scene.remove(electronCloud); electronGeo.dispose(); electronGeo=null; electronCloud=null; }
+    const positions=generatePositions(currentOrbital,particleCount);
+    electronGeo=new THREE.BufferGeometry();
+    electronGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    const phases=new Float32Array(particleCount);
+    for(let i=0;i<particleCount;i++) phases[i]=Math.random()*Math.PI*2;
+    electronGeo.setAttribute('phase', new THREE.BufferAttribute(phases,1));
+    electronCloud=new THREE.Points(electronGeo,electronMat);
+    electronCloud.position.set(0,6,0);
     scene.add(electronCloud);
 }
-
-// create initial orbital cloud
 regenerateOrbital();
 
 // ---------------- Animation ----------------
-const clock = new THREE.Clock();
+const clock=new THREE.Clock();
 function animate(){
     requestAnimationFrame(animate);
-    const delta = clock.getDelta();
-
+    const delta=clock.getDelta();
     mixers.forEach(m=>m.update(delta));
 
-    // Desktop FPS movement
     if(!isMobile && pointerLocked){
-        const speed = 20 * delta;
-
-        const forward = new THREE.Vector3();
-        camera.getWorldDirection(forward);
-        forward.y = 0;
-        forward.normalize();
-
-        const right = new THREE.Vector3();
-        right.crossVectors(camera.up, forward).normalize().negate();
-
-        const obj = controls.getObject();
-
-        if(move.forward) obj.position.addScaledVector(forward, speed);
-        if(move.backward) obj.position.addScaledVector(forward, -speed);
-        if(move.left) obj.position.addScaledVector(right, -speed);
-        if(move.right) obj.position.addScaledVector(right, speed);
-        if(move.up) obj.position.y += speed;
-        if(move.down) obj.position.y -= speed;
+        const speed=20*delta;
+        const forward=new THREE.Vector3(); camera.getWorldDirection(forward); forward.y=0; forward.normalize();
+        const right=new THREE.Vector3(); right.crossVectors(camera.up,forward).normalize().negate();
+        const obj=controls.getObject();
+        if(move.forward) obj.position.addScaledVector(forward,speed);
+        if(move.backward) obj.position.addScaledVector(forward,-speed);
+        if(move.left) obj.position.addScaledVector(right,-speed);
+        if(move.right) obj.position.addScaledVector(right,speed);
+        if(move.up) obj.position.y+=speed;
+        if(move.down) obj.position.y-=speed;
     }
 
-    // animate wave audio
-    if(analyser){
-        const avg = analyser.getAverageFrequency()/256;
-        waveMat.uniforms.audioAmp.value = avg;
-    }
-    waveMat.uniforms.time.value += delta;
+    // audio reactive waves
+    if(analyser){ waveMat.uniforms.audioAmp.value=analyser.getAverageFrequency()/256; }
+    waveMat.uniforms.time.value+=delta;
 
-    // animate electron cloud shimmer and slight breathing + rotation
-    if (electronCloud && electronGeo){
-        electronMat.opacity = 0.28 + 0.16 * Math.sin(clock.elapsedTime * 1.8);
-
-        // small per-particle radial jitter using CPU (cheap)
-        const posAttr = electronGeo.getAttribute('position');
-        const phaseAttr = electronGeo.getAttribute('phase');
-        const basePositions = posAttr.array; // current positions
-        // subtle time-based expansion/contraction (non-destructive)
-        const t = clock.elapsedTime * 0.3;
-        for (let i=0; i<posAttr.count; i++){
-            const pi = i*3;
-            const ph = phaseAttr.getX(i);
-            // original radius stored implicitly; we apply a tiny sinusoidal scale
-            const ox = basePositions[pi];
-            const oy = basePositions[pi+1];
-            const oz = basePositions[pi+2];
-            const s = 1 + 0.02 * Math.sin(t + ph);
-            basePositions[pi]   = ox * s;
-            basePositions[pi+1] = oy * s;
-            basePositions[pi+2] = oz * s;
+    // audio reactive orbital cloud
+    if(electronCloud && electronGeo){
+        let audioScale=1.0, freqShift=1.0;
+        if(analyser){
+            const avg=analyser.getAverageFrequency()/128.0; audioScale=1.0+avg*0.3;
+            const data=analyser.getFrequencyData();
+            let weightedSum=0,sum=0;
+            for(let i=0;i<data.length;i++){ weightedSum+=i*data[i]; sum+=data[i]; }
+            if(sum>0){ const centroid=weightedSum/sum; freqShift=0.5+centroid/data.length; }
         }
-        posAttr.needsUpdate = true;
-
-        // slow rotation of the whole cloud
-        electronCloud.rotation.y += (isMobile ? 0.001 : 0.002);
+        electronMat.opacity=0.25+0.2*Math.sin(clock.elapsedTime*2.0*freqShift);
+        const posAttr=electronGeo.getAttribute('position'); const phaseAttr=electronGeo.getAttribute('phase'); const base=posAttr.array;
+        const t=clock.elapsedTime*(0.3+freqShift*0.5);
+        for(let i=0;i<posAttr.count;i++){
+            const pi=i*3,ph=phaseAttr.getX(i);
+            const ox=base[pi], oy=base[pi+1], oz=base[pi+2];
+            const s=audioScale+0.05*Math.sin(t+ph);
+            base[pi]=ox*s; base[pi+1]=oy*s; base[pi+2]=oz*s;
+        }
+        posAttr.needsUpdate=true;
+        electronCloud.rotation.y+=0.001*freqShift;
     }
 
     if(orbitControls) orbitControls.update();
@@ -443,17 +316,11 @@ function animate(){
 animate();
 
 // ---------------- Resize ----------------
-window.addEventListener('resize', ()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
+window.addEventListener('resize',()=>{
+    camera.aspect=window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth,window.innerHeight);
 });
-
-// ---------------- Helpful notes ----------------
-// - To change lobe axis for p-orbital you can rotate electronCloud after creation.
-// - For heavier visual effects (shader-based density, soft edges) you could replace PointsMaterial with a custom shader material - but that increases GPU cost on mobile.
-// - If you get jitter/lag on mobile, reduce particleCount (use the – button).
-
 </script>
 </body>
 </html>
