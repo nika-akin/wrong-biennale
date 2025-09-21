@@ -3,7 +3,7 @@
 
 ![Header Image Placeholder](./ab.png)
 
-**Quantum Landscapes** is an interactive 3D experience exploring the ambiguity of knowledge and measurement through the metaphor of quantum orbitals.
+**Pas Normales Landscapes** is an interactive 3D experience exploring the ambiguity of knowledge and measurement through the metaphor of quantum orbitals.
 
 ---
 
