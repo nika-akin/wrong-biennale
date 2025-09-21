@@ -57,5 +57,5 @@ The combination of these techniques transforms real-world satellite data into a 
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/wrong-biennale.git
+   git clone https://github.com/nika-akin/wrong-biennale.git
 
