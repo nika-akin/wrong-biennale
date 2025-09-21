@@ -1,5 +1,5 @@
 
-# Wrong Biennale Submission: [Quantum Landscapes](https://nika-akin.github.io/wrong-biennale/)
+# Wrong Biennale Submission: [Pas Normale Landscapes](https://nika-akin.github.io/wrong-biennale/)
 
 ![Header Image Placeholder](./ab.png)
 
