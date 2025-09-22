@@ -157,7 +157,6 @@ function loadGLB(path, scale, pos) {
 // Example models
 loadGLB('./models/rigid_astronaut.glb', 2, {x:0,y:0,z:0});
 loadGLB('./models/tmp1.glb', 3, {x:20,y:0,z:0});
-//loadGLB('./models/landscape_mesh.glb', 5, {x:-15,y:0,z:-10});
 //loadGLB('./models/other_experiment.glb', 2, {x:0,y:0,z:25});
 
 // ---------------- Audio ----------------
@@ -278,4 +277,34 @@ function animate(){
         let audioScale=1, freqShift=1;
         if(analyser){
             const avg=analyser.getAverageFrequency()/128.0; audioScale=1+avg*0.3;
-            const data=analyser.get
+            const data=analyser.getFrequencyData(); let weightedSum=0,sum=0;
+            for(let i=0;i<data.length;i++){ weightedSum+=i*data[i]; sum+=data[i]; }
+            if(sum>0){ freqShift=0.5+weightedSum/sum/data.length; }
+        }
+        electronMat.opacity=0.25+0.2*Math.sin(clock.elapsedTime*2.0*freqShift);
+        const posAttr=electronGeo.getAttribute('position');
+        const phaseAttr=electronGeo.getAttribute('phase');
+        for(let i=0;i<posAttr.count;i++){
+            const pi=i*3,ph=phaseAttr.getX(i);
+            posAttr.array[pi]=basePositions[pi]*audioScale*(1+0.05*Math.sin(clock.elapsedTime+ph));
+            posAttr.array[pi+1]=basePositions[pi+1]*audioScale*(1+0.05*Math.sin(clock.elapsedTime+ph));
+            posAttr.array[pi+2]=basePositions[pi+2]*audioScale*(1+0.05*Math.sin(clock.elapsedTime+ph));
+        }
+        posAttr.needsUpdate=true;
+        electronCloud.rotation.y+=0.001*freqShift;
+    }
+
+    if(orbitControls) orbitControls.update();
+    renderer.render(scene,camera);
+}
+animate();
+
+// ---------------- Resize ----------------
+window.addEventListener('resize',()=>{
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>
