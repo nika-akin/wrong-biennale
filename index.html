@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Quantum Orbitals Scene</title>
+<title>Berlinale Alien Walk — Quantum Scene</title>
 <style>
   body { margin:0; overflow:hidden; background:black; }
   canvas { display:block; }
@@ -64,19 +64,16 @@ import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/control
 // ---------------- Scene ----------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.FogExp2(0x000000, 0.015);
-
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.01, 2000);
-camera.position.set(0,5,15);
-
+camera.position.set(0,5,10);
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
 document.body.appendChild(renderer.domElement);
 
 // ---------------- Lights ----------------
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
 dirLight.position.set(10,20,10);
 scene.add(dirLight);
 
@@ -86,7 +83,6 @@ let pointerLocked=false;
 let controls, orbitControls;
 const move={forward:false,backward:false,left:false,right:false,up:false,down:false};
 const instructions=document.getElementById('instructions');
-
 if(isMobile){
     if(instructions) instructions.style.display='none';
     orbitControls=new OrbitControls(camera,renderer.domElement);
@@ -94,6 +90,10 @@ if(isMobile){
     orbitControls.dampingFactor=0.05;
     orbitControls.minDistance=5;
     orbitControls.maxDistance=100;
+    orbitControls.minPolarAngle=0;
+    orbitControls.maxPolarAngle=Math.PI/2;
+    orbitControls.enablePan=true;
+    orbitControls.screenSpacePanning=true;
 }else{
     controls=new PointerLockControls(camera,renderer.domElement);
     scene.add(controls.getObject());
@@ -123,54 +123,42 @@ if(isMobile){
     });
 }
 
-// ---------------- GLTF Loader ----------------
+// ---------------- Load Models ----------------
 const loader=new GLTFLoader();
 const dracoLoader=new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 let mixers=[];
 
-// helper function
-function loadModel(path, position=[0,0,0], scale=1, color=0x44aaff) {
-  loader.load(path, gltf => {
-    const model = gltf.scene || gltf.scenes[0];
-    model.scale.set(scale, scale, scale);
-    model.position.set(...position);
+function loadGLB(path, scale, pos) {
+    loader.load(path, gltf=>{
+        const model=gltf.scene||gltf.scenes[0];
+        model.scale.set(scale,scale,scale);
+        model.position.set(pos.x,pos.y,pos.z);
+        scene.add(model);
 
-    // recenter
-    const box = new THREE.Box3().setFromObject(model);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    model.position.sub(center.multiplyScalar(1));
+        // On mobile, keep OrbitControls centered on first loaded model
+        if (isMobile && orbitControls && path.includes('rigid_astronaut')) {
+            const box = new THREE.Box3().setFromObject(model);
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            orbitControls.target.copy(center);
+            orbitControls.update();
+        }
 
-    // glowing emissive material
-    model.traverse(child => {
-      if (child.isMesh) {
-        child.material = new THREE.MeshStandardMaterial({
-          color: color,
-          emissive: new THREE.Color(color),
-          emissiveIntensity: 1.5,
-          transparent: true,
-          opacity: 0.9
-        });
-      }
+        if(gltf.animations&&gltf.animations.length>0){
+            const mixer=new THREE.AnimationMixer(model);
+            gltf.animations.forEach(clip=>mixer.clipAction(clip).play());
+            mixers.push(mixer);
+        }
     });
-
-    scene.add(model);
-
-    if (gltf.animations && gltf.animations.length > 0) {
-      const mixer = new THREE.AnimationMixer(model);
-      gltf.animations.forEach(clip => mixer.clipAction(clip).play());
-      mixers.push(mixer);
-    }
-  });
 }
 
-// load a few glowing models
-loadModel('./models/rigid_astronaut.glb', [0,0,0], 2, 0x00ffff);
-loadModel('./models/tmp1.glb', [12,0,0], 2, 0xff44aa);
-loadModel('./models/tmp2.glb', [-12,0,0], 2, 0xffff44);
-loadModel('./models/tmp3.glb', [0,0,12], 1.5, 0x44ffaa);
+// Example models
+loadGLB('./models/rigid_astronaut.glb', 2, {x:0,y:0,z:0});
+loadGLB('./models/tmp1.glb', 3, {x:20,y:0,z:0});
+loadGLB('./models/tmp2.glb', 2, {x:0,y:0,z:25});
+loadGLB('./models/tmp3.glb', 2, {x:0,y:0,z:10});
 
 // ---------------- Audio ----------------
 const listener=new THREE.AudioListener(); camera.add(listener);
@@ -186,7 +174,19 @@ function startAudio(){
     });
 }
 
-// ---------------- Electron Clouds ----------------
+// ---------------- Wave Plane ----------------
+const waveGeo=new THREE.PlaneGeometry(200,200,128,128); waveGeo.rotateX(-Math.PI/2);
+const waveMat=new THREE.ShaderMaterial({
+    uniforms:{time:{value:0},audioAmp:{value:0}},
+    vertexShader:`uniform float time; uniform float audioAmp; varying float vHeight;
+    void main(){ vec3 pos=position; pos.y+=sin(pos.x*0.1+time*2.0)*1.2; pos.y+=sin(pos.z*0.1+time*1.5)*1.2; pos.y+=audioAmp*3.0; pos.y-=0.5; vHeight=pos.y; gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0);}`,
+    fragmentShader:`varying float vHeight; void main(){ float gray=0.1+0.2*(vHeight*0.1+0.5); gl_FragColor=vec4(vec3(gray),0.5);}`,
+    transparent:true, side:THREE.DoubleSide
+});
+scene.add(new THREE.Mesh(waveGeo,waveMat));
+
+// ---------------- Electron Cloud ----------------
+// (unchanged from your version)
 let particleCount=10000, minParticles=2000, maxParticles=20000;
 let electronGeo=null, electronCloud=null, basePositions=null;
 const electronMat=new THREE.PointsMaterial({
@@ -269,6 +269,11 @@ function animate(){
         if(move.down) obj.position.y-=speed;
     }
 
+    // waves
+    if(analyser) waveMat.uniforms.audioAmp.value=analyser.getAverageFrequency()/256;
+    waveMat.uniforms.time.value+=delta;
+
+    // electron cloud audio animation
     if(electronCloud && electronGeo && basePositions){
         let audioScale=1, freqShift=1;
         if(analyser){
