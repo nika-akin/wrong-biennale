@@ -130,7 +130,7 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 let mixers=[];
 
-function loadLandscapeGLB(path, scale = 1, pos = {x:0,y:0,z:0}, color = 0x44aaff) {
+function loadGLB(path, scale = 1, pos = {x:0,y:0,z:0}, color = 0x44aaff) {
   loader.load(path, gltf => {
     const model = gltf.scene || gltf.scenes[0];
     model.scale.set(scale, scale, scale);
@@ -151,14 +151,15 @@ function loadLandscapeGLB(path, scale = 1, pos = {x:0,y:0,z:0}, color = 0x44aaff
   });
 }
 
-loadLandscapeGLB('./models/rigid_astronaut.glb', 3, {x:0,y:0,z:0});
-loadLandscapeGLB('./models/tmp1.glb', 3, {x:20,y:0,z:0});
-loadLandscapeGLB('./models/tmp2.glb', 2, {x:0,y:0,z:25});
-loadLandscapeGLB('./models/tmp3.glb', 2, {x:0,y:0,z:10});
-loadLandscapeGLB('./models/tmp4.glb', 2, {x:0,y:0,z:10});
-loadLandscapeGLB('./models/tmp5.glb', 2, {x:0,y:0,z:10});
-loadLandscapeGLB('./models/tmp6.glb', 2, {x:0,y:1,z:10});
 
+// Example models
+loadGLB('./models/rigid_astronaut.glb', 2, {x:0,y:0,z:0});
+loadGLB('./models/tmp1.glb', 3, {x:20,y:0,z:0});
+loadGLB('./models/tmp2.glb', 2, {x:0,y:0,z:25});
+loadGLB('./models/tmp3.glb', 2, {x:0,y:0,z:10});
+loadGLB('./models/tmp4.glb', 2, {x:0,y:0,z:10});
+loadGLB('./models/tmp5.glb', 2, {x:0,y:0,z:10});
+loadGLB('./models/tmp6.glb', 2, {x:0,y:1,z:10});
 
 // ---------------- Audio ----------------
 const listener=new THREE.AudioListener(); camera.add(listener);
