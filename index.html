@@ -143,6 +143,7 @@ function loadGLB(path, scale, pos) {
             model.position.z = 0;
         } else {
             model.position.set(pos.x, pos.y, pos.z);
+            model.rotation.set(rot.x, rot.y, rot.z); // apply rotation
         }
 
         scene.add(model);
@@ -166,15 +167,15 @@ function loadGLB(path, scale, pos) {
 
 // models
 loadGLB('./models/rigid_astronaut.glb', 2, {x:0,y:0,z:0});
-loadGLB('./models/tmp1.glb', 3, {x:3,y:0,z:0});
-loadGLB('./models/tmp2.glb', 2, {x:0,y:3,z:25});
-loadGLB('./models/tmp3.glb', 2, {x:0,y:0,z:10});
-loadGLB('./models/tmp4.glb', 2, {x:3,y:3,z:10});
-loadGLB('./models/tmp5.glb', 2, {x:10,y:0,z:10});
-loadGLB('./models/tmp6.glb', 2, {x:1,y:4,z:10});
-loadGLB('./models/tmp7.glb', 2, {x:6,y:2,z:10});
-loadGLB('./models/tmp8.glb', 2, {x:2,y:1,z:10});
-loadGLB('./models/tmp9.glb', 2, {x:2,y:1,z:7});
+loadGLB('./models/tmp1.glb', 3, {x:3,y:0,z:0});{x:0, y:Math.PI/2, z:0});
+loadGLB('./models/tmp2.glb', 2, {x:0,y:3,z:25});{x:0, y:Math.PI/2, z:0});
+loadGLB('./models/tmp3.glb', 2, {x:0,y:0,z:10});{x:0, y:Math.PI/2, z:0});
+loadGLB('./models/tmp4.glb', 2, {x:3,y:3,z:10});{x:0, y:Math.PI/2, z:0});
+loadGLB('./models/tmp5.glb', 2, {x:10,y:0,z:10});{x:0, y:Math.PI/2, z:0});
+loadGLB('./models/tmp6.glb', 2, {x:1,y:4,z:10});{x:0, y:Math.PI/2, z:0});
+loadGLB('./models/tmp7.glb', 2, {x:6,y:2,z:10});{x:0, y:Math.PI/2, z:0});
+loadGLB('./models/tmp8.glb', 2, {x:2,y:1,z:10});{x:0, y:Math.PI/2, z:0});
+loadGLB('./models/tmp9.glb', 2, {x:2,y:1,z:7});{x:0, y:Math.PI/2, z:0});
 loadGLB('./models/tmp10.glb', 2, {x:0,y:1,z:10});
 loadGLB('./models/tmp11.glb', 2, {x:3,y:4,z:10});
 loadGLB('./models/tmp12.glb', 2, {x:2,y:2,z:10});
