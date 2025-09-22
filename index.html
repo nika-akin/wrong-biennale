@@ -129,27 +129,21 @@ const dracoLoader=new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 let mixers=[];
-function loadGLB(path, scale = 1, pos = {x:0,y:0,z:0}, color = 0x44aaff) {
+
+function loadLandscapeGLB(path, scale = 1, pos = {x:0,y:0,z:0}, color = 0x44aaff) {
   loader.load(path, gltf => {
     const model = gltf.scene || gltf.scenes[0];
     model.scale.set(scale, scale, scale);
 
-    // --- recenter to origin ---
+    // only lift so bottom sits at y = pos.y
     const box = new THREE.Box3().setFromObject(model);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    model.position.sub(center); // shifts pivot to center
-
-    // --- lift so bottom touches y=0 ---
     const size = new THREE.Vector3();
     box.getSize(size);
-    model.position.y += size.y / 2;
+    model.position.y += (size.y / 2) + pos.y; // lift, keep original offset
 
-    // --- now apply your chosen offset ---
-    model.position.add(new THREE.Vector3(pos.x, pos.y, pos.z));
-
-
-
+    // keep user-specified x/z
+    model.position.x += pos.x;
+    model.position.z += pos.z;
     scene.add(model);
   });
 }
