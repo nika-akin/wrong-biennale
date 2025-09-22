@@ -144,8 +144,9 @@ function loadGLB(path, scale, pos) {
         } else {
             // Position other models
             model.position.set(pos.x, pos.y, pos.z);
- // Optional rotation
-            if (rotateX) model.rotation.x = Math.PI / 2; // rotate 90° around X
+
+     // rotate all non-rigid models automatically
+            model.rotation.x = Math.PI / 2; 
 
             // Add a soft light near this landscape
             const light = new THREE.PointLight(0xffffff, 0.4, 50); // color, intensity, distance
@@ -173,9 +174,9 @@ function loadGLB(path, scale, pos) {
 
 // models
 loadGLB('./models/rigid_astronaut.glb', 2, {x:0,y:0,z:0});
-loadGLB('./models/tmp1.glb', 3, {x:3,y:0,z:0}, true);
-loadGLB('./models/tmp2.glb', 2, {x:0,y:3,z:25}, true);
-loadGLB('./models/tmp3.glb', 2, {x:4,y:0,z:10}, true);
+loadGLB('./models/tmp1.glb', 3, {x:3,y:0,z:0});
+loadGLB('./models/tmp2.glb', 2, {x:0,y:3,z:25});
+loadGLB('./models/tmp3.glb', 2, {x:4,y:0,z:10});
 loadGLB('./models/tmp4.glb', 2, {x:4,y:3,z:10});
 loadGLB('./models/tmp5.glb', 2, {x:10,y:4,z:10});
 loadGLB('./models/tmp6.glb', 2, {x:1,y:4,z:10});
