@@ -130,36 +130,47 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(dracoLoader);
 let mixers=[];
 
-function loadGLB(path, scale = 1, pos = {x:0,y:0,z:0}, color = 0x44aaff) {
-  loader.load(path, gltf => {
-    const model = gltf.scene || gltf.scenes[0];
-    model.scale.set(scale, scale, scale);
+function loadGLB(path, scale, pos) {
+    loader.load(path, gltf=>{
+        const model=gltf.scene||gltf.scenes[0];
+        model.scale.set(scale,scale,scale);
+        model.position.set(pos.x,pos.y,pos.z);
+        scene.add(model);
 
-    // only lift so bottom sits at y = pos.y
-    const box = new THREE.Box3().setFromObject(model);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    model.position.y += (size.y / 2) + pos.y; // lift, keep original offset
+        // On mobile, keep OrbitControls centered on first loaded model
+        if (isMobile && orbitControls && path.includes('rigid_astronaut')) {
+            const box = new THREE.Box3().setFromObject(model);
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            orbitControls.target.copy(center);
+            orbitControls.update();
+        }
 
-    // keep user-specified x/z
-    model.position.x += pos.x;
-    model.position.z += pos.z;
-
-
-
-    scene.add(model);
-  });
+        if(gltf.animations&&gltf.animations.length>0){
+            const mixer=new THREE.AnimationMixer(model);
+            gltf.animations.forEach(clip=>mixer.clipAction(clip).play());
+            mixers.push(mixer);
+        }
+    });
 }
-
 
 // Example models
 loadGLB('./models/rigid_astronaut.glb', 2, {x:0,y:0,z:0});
-loadGLB('./models/tmp1.glb', 3, {x:20,y:0,z:0});
-loadGLB('./models/tmp2.glb', 2, {x:0,y:0,z:25});
+loadGLB('./models/tmp1.glb', 3, {x:5,y:0,z:0});
+loadGLB('./models/tmp2.glb', 2, {x:0,y:3,z:25});
 loadGLB('./models/tmp3.glb', 2, {x:0,y:0,z:10});
 loadGLB('./models/tmp4.glb', 2, {x:0,y:0,z:10});
 loadGLB('./models/tmp5.glb', 2, {x:0,y:0,z:10});
 loadGLB('./models/tmp6.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp7.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp8.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp9.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp10.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp11.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp12.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp13.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp14.glb', 2, {x:0,y:1,z:10});
+loadGLB('./models/tmp15.glb', 2, {x:0,y:1,z:10});
 
 // ---------------- Audio ----------------
 const listener=new THREE.AudioListener(); camera.add(listener);
