@@ -138,17 +138,21 @@ function loadGLB(path, scale, pos) {
         // Special handling for rigid_astronaut
         if (path.includes('rigid_astronaut')) {
             const box = new THREE.Box3().setFromObject(model);
-            model.position.y = -box.min.y + 5; // keep original offset
+            model.position.y = -box.min.y + 5; // original offset
             model.position.x = 0;
             model.position.z = 0;
         } else {
+            // Position other models
             model.position.set(pos.x, pos.y, pos.z);
 
+            // Add a soft light near this landscape
+            const light = new THREE.PointLight(0xffffff, 0.4, 50); // color, intensity, distance
+            light.position.set(pos.x, pos.y + 5, pos.z + 5); // slightly above & offset
+            scene.add(light);
         }
 
         scene.add(model);
 
-        // On mobile, keep OrbitControls centered on first loaded model
         if (isMobile && orbitControls && path.includes('rigid_astronaut')) {
             const box = new THREE.Box3().setFromObject(model);
             const center = new THREE.Vector3();
