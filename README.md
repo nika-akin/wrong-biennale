@@ -1,10 +1,9 @@
 
-# Wrong Biennale Submission: [Pas Normales Landscapes](https://nika-akin.github.io/wrong-biennale/)
+# [Pas Normales Landscapes](https://nika-akin.github.io/wrong-biennale/)
 
 ![Header Image Placeholder](./ab.png)
 
-**Pas Normales Landscapes** 
-is an interactive 3D experience.
+**Pas Normales Landscapes**  is an interactive 3D space. [Enter here](https://nika-akin.github.io/wrong-biennale/)
 ---
 
 ## Concept
