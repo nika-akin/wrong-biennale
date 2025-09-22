@@ -131,10 +131,20 @@ loader.setDRACOLoader(dracoLoader);
 let mixers=[];
 
 function loadGLB(path, scale, pos) {
-    loader.load(path, gltf=>{
-        const model=gltf.scene||gltf.scenes[0];
-        model.scale.set(scale,scale,scale);
-        model.position.set(pos.x,pos.y,pos.z);
+    loader.load(path, gltf => {
+        const model = gltf.scene || gltf.scenes[0];
+        model.scale.set(scale, scale, scale);
+
+        // Special handling for rigid_astronaut
+        if (path.includes('rigid_astronaut')) {
+            const box = new THREE.Box3().setFromObject(model);
+            model.position.y = -box.min.y + 5; // keep original offset
+            model.position.x = 0;
+            model.position.z = 0;
+        } else {
+            model.position.set(pos.x, pos.y, pos.z);
+        }
+
         scene.add(model);
 
         // On mobile, keep OrbitControls centered on first loaded model
@@ -146,15 +156,15 @@ function loadGLB(path, scale, pos) {
             orbitControls.update();
         }
 
-        if(gltf.animations&&gltf.animations.length>0){
-            const mixer=new THREE.AnimationMixer(model);
-            gltf.animations.forEach(clip=>mixer.clipAction(clip).play());
+        if (gltf.animations && gltf.animations.length > 0) {
+            const mixer = new THREE.AnimationMixer(model);
+            gltf.animations.forEach(clip => mixer.clipAction(clip).play());
             mixers.push(mixer);
         }
     });
 }
 
-// Example models
+// models
 loadGLB('./models/rigid_astronaut.glb', 2, {x:0,y:0,z:0});
 loadGLB('./models/tmp1.glb', 3, {x:5,y:0,z:0});
 loadGLB('./models/tmp2.glb', 2, {x:0,y:3,z:25});
@@ -171,6 +181,7 @@ loadGLB('./models/tmp12.glb', 2, {x:0,y:1,z:10});
 loadGLB('./models/tmp13.glb', 2, {x:0,y:1,z:10});
 loadGLB('./models/tmp14.glb', 2, {x:0,y:1,z:10});
 loadGLB('./models/tmp15.glb', 2, {x:0,y:1,z:10});
+
 
 // ---------------- Audio ----------------
 const listener=new THREE.AudioListener(); camera.add(listener);
