@@ -47,7 +47,7 @@ This project was submitted for the **Wrong Biennale** and investigates the inter
 
 - **3D Engine**: [Three.js](https://threejs.org/)  
 - **Models**: GLTF format for astronaut and satellite meshes  
-- **Audio**: Ambient sound used to drive orbital animations  
+- **Audio**: Sound made with PD   
 - **Shaders**: Custom shaders for:
   - Electron clouds
   - Wave surfaces
